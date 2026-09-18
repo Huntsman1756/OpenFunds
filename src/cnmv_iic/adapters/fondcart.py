@@ -17,13 +17,17 @@ Semantics:
 
 from __future__ import annotations
 
-import io
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import TYPE_CHECKING, Literal
 
-from lxml import etree
-
 from cnmv_iic import __version__
+from cnmv_iic.adapters.common import (
+    parse_period,
+    required_decimal,
+    required_text,
+    secure_parse,
+    text_of,
+)
 from cnmv_iic.domain import (
     FundIdentity,
     PortfolioSnapshot,
@@ -33,7 +37,7 @@ from cnmv_iic.domain import (
     QualityObservation,
     classify_isin,
 )
-from cnmv_iic.errors import ParseError, UnsupportedSchemaError
+from cnmv_iic.errors import UnsupportedSchemaError
 from cnmv_iic.schemas.registry import assert_structure
 
 if TYPE_CHECKING:
@@ -46,61 +50,6 @@ FAMILY = "FONDCART"
 RECON_TOLERANCE = Decimal("0.001")  # 0.1% relative, per G0 criteria
 
 
-def _secure_parse(xml: bytes) -> etree._Element:
-    head = xml[:2048].lstrip()
-    if b"<!DOCTYPE" in head or b"<!ENTITY" in head:
-        raise ParseError("DOCTYPE/ENTITY declarations rejected")
-    parser = etree.XMLParser(
-        resolve_entities=False,
-        no_network=True,
-        load_dtd=False,
-        dtd_validation=False,
-        recover=False,
-        huge_tree=False,
-    )
-    try:
-        return etree.parse(io.BytesIO(xml), parser).getroot()
-    except etree.XMLSyntaxError as exc:
-        raise ParseError(f"XML syntax error: {exc}") from exc
-
-
-def _text(el: etree._Element, tag: str) -> str | None:
-    child = el.find(tag)
-    if child is None or child.text is None:
-        return None
-    v = child.text.strip()
-    return v or None
-
-
-def _required(el: etree._Element, tag: str, locator: str) -> str:
-    if el.find(tag) is None:
-        raise UnsupportedSchemaError(
-            f"{FAMILY}: required element {tag} absent at {locator}"
-        )
-    v = _text(el, tag)
-    if v is None:
-        raise ParseError(f"{FAMILY}: empty {tag} at {locator}")
-    return v
-
-
-def _decimal(el: etree._Element, tag: str, locator: str) -> Decimal:
-    raw = _required(el, tag, locator)
-    try:
-        return Decimal(raw)
-    except InvalidOperation as exc:
-        raise ParseError(f"{FAMILY}: non-decimal {tag}={raw!r} at {locator}") from exc
-
-
-def parse_fecha_datos(root: etree._Element) -> str:
-    raw = _text(root, "FechaDatos")
-    if raw is None or len(raw) != 6 or not raw.isdigit():
-        raise ParseError(f"FONDCART: bad FechaDatos {raw!r}")
-    month = int(raw[4:6])
-    if not 1 <= month <= 12:
-        raise ParseError(f"FONDCART: bad FechaDatos month {raw!r}")
-    return f"{raw[:4]}-{raw[4:6]}"
-
-
 def parse_fondcart(
     xml: bytes,
     *,
@@ -109,36 +58,36 @@ def parse_fondcart(
     member_sha256: str,
 ) -> list[PortfolioSnapshot]:
     """Parse one FONDCART member into per-compartimento snapshots."""
-    root = _secure_parse(xml)
+    root = secure_parse(xml, FAMILY)
     assert_structure(FAMILY, root)
-    period = parse_fecha_datos(root)
+    period = parse_period(root, FAMILY)
 
     snapshots: list[PortfolioSnapshot] = []
     for i, ent in enumerate(root.iter("Entidad"), start=1):
         e_loc = f"FondCart/Entidad[{i}]"
-        tipo = _required(ent, "Tipo", e_loc)
-        nreg = _required(ent, "NumeroRegistro", e_loc)
+        tipo = required_text(ent, "Tipo", FAMILY, e_loc)
+        nreg = required_text(ent, "NumeroRegistro", FAMILY, e_loc)
         for j, comp in enumerate(ent.findall("Compartimento"), start=1):
             c_loc = f"{e_loc}/Compartimento[{j}]"
-            ncomp = _required(comp, "NumeroCompartimento", c_loc)
+            ncomp = required_text(comp, "NumeroCompartimento", FAMILY, c_loc)
             identity = FundIdentity(tipo, nreg, ncomp)
             positions: list[Position] = []
             for k, inv in enumerate(
                 comp.findall("InversionesFinancieras"), start=1
             ):
                 p_loc = f"{c_loc}/InversionesFinancieras[{k}]"
-                clase = _required(inv, "ClaseIF", p_loc)
-                desc_if = _required(inv, "DescripcionIF", p_loc)
-                desc_val = _text(inv, "DescripcionValor")
-                divisa = _text(inv, "Divisa")
+                clase = required_text(inv, "ClaseIF", FAMILY, p_loc)
+                desc_if = required_text(inv, "DescripcionIF", FAMILY, p_loc)
+                desc_val = text_of(inv, "DescripcionValor")
+                divisa = text_of(inv, "Divisa")
                 if inv.find("DescripcionValor") is None:
                     raise UnsupportedSchemaError(
                         f"{FAMILY}: required element DescripcionValor "
                         f"absent at {p_loc}"
                     )
                 # Divisa absence: registered deviation (17 obs., 2012-03 only)
-                vm = _decimal(inv, "ValorMercado", p_loc)
-                isin_raw = _text(inv, "CodigoISIN")
+                vm = required_decimal(inv, "ValorMercado", FAMILY, p_loc)
+                isin_raw = text_of(inv, "CodigoISIN")
                 kind = (PositionKind.CASH if desc_if == "Depositos"
                         else PositionKind.SECURITY)
                 positions.append(Position(
@@ -201,7 +150,7 @@ def reconcile(
     """
     if pdv_xml is None:
         return
-    root = _secure_parse(pdv_xml)
+    root = secure_parse(pdv_xml, "FONDPATRIMDISVAR")
     assert_structure("FONDPATRIMDISVAR", root)
     pdv_totals: dict[tuple[str, str], Decimal] = {}
     for ent in root.iter("Entidad"):

@@ -21,7 +21,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from cnmv_iic.domain import PortfolioSnapshot
+from cnmv_iic.domain import FundRecord, PortfolioSnapshot
 
 Q18 = Decimal(1).scaleb(-18)
 DERIVED_QUANT = Q18
@@ -46,6 +46,62 @@ POSITIONS_SCHEMA = pa.schema([
     ("source_sha256", pa.string()),
     ("member_name", pa.string()),
     ("member_sha256", pa.string()),
+    ("xml_locator", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+FUNDS_SCHEMA = pa.schema([
+    ("period", pa.string()),
+    ("fund_key", pa.string()),
+    ("entity_type", pa.string()),
+    ("numero_registro", pa.string()),
+    ("denominacion", pa.string()),
+    ("etf", pa.string()),
+    ("gestora_numero_registro", pa.string()),
+    ("gestora_denominacion", pa.string()),
+    ("gestora_tipo", pa.string()),
+    ("grupo_gestora_numero", pa.string()),
+    ("grupo_gestora_denominacion", pa.string()),
+    ("depositario_numero_registro", pa.string()),
+    ("depositario_denominacion", pa.string()),
+    ("grupo_depositario_numero", pa.string()),
+    ("grupo_depositario_denominacion", pa.string()),
+    ("n_compartments", pa.int32()),
+    ("n_share_classes", pa.int32()),
+    ("source_artifact_id", pa.string()),
+    ("source_sha256", pa.string()),
+    ("xml_locator", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+COMPARTMENTS_SCHEMA = pa.schema([
+    ("period", pa.string()),
+    ("compartment_key", pa.string()),   # = portfolio_owner_key in FONDCART
+    ("fund_key", pa.string()),
+    ("entity_type", pa.string()),
+    ("numero_registro", pa.string()),
+    ("numero_compartimento", pa.string()),
+    ("denominacion", pa.string()),
+    ("n_classes", pa.int32()),
+    ("source_artifact_id", pa.string()),
+])
+
+SHARE_CLASSES_SCHEMA = pa.schema([
+    ("period", pa.string()),
+    ("share_class_key", pa.string()),
+    ("fund_key", pa.string()),
+    ("compartment_key", pa.string()),   # portfolio_owner_key
+    ("entity_type", pa.string()),
+    ("numero_registro", pa.string()),
+    ("numero_compartimento", pa.string()),
+    ("numero_clase", pa.string()),
+    ("isin_raw", pa.string()),
+    ("isin_state", pa.string()),
+    ("denominacion_clase", pa.string()),
+    ("denominacion_compartimento", pa.string()),
+    ("source_artifact_id", pa.string()),
     ("xml_locator", pa.string()),
     ("parser", pa.string()),
     ("parser_version", pa.string()),
@@ -140,6 +196,97 @@ def quality_rows(snaps: list[PortfolioSnapshot]) -> list[dict]:
     return rows
 
 
+def fund_rows(records: list[FundRecord]) -> list[dict]:
+    rows = []
+    for r in records:
+        n_classes = sum(len(c.classes) for c in r.compartments)
+        rows.append({
+            "period": r.period,
+            "fund_key": r.key,
+            "entity_type": r.entity_type,
+            "numero_registro": r.numero_registro,
+            "denominacion": r.denominacion,
+            "etf": r.etf,
+            "gestora_numero_registro": r.gestora.numero_registro,
+            "gestora_denominacion": r.gestora.denominacion,
+            "gestora_tipo": r.gestora.tipo,
+            "grupo_gestora_numero": r.gestora.grupo_numero,
+            "grupo_gestora_denominacion": r.gestora.grupo_denominacion,
+            "depositario_numero_registro": r.depositario.numero_registro,
+            "depositario_denominacion": r.depositario.denominacion,
+            "grupo_depositario_numero": r.depositario.grupo_numero,
+            "grupo_depositario_denominacion": r.depositario.grupo_denominacion,
+            "n_compartments": len(r.compartments),
+            "n_share_classes": n_classes,
+            "source_artifact_id": r.provenance.source_artifact_id,
+            "source_sha256": r.provenance.source_sha256,
+            "xml_locator": r.provenance.xml_locator,
+            "parser": r.provenance.parser,
+            "parser_version": r.provenance.parser_version,
+        })
+    rows.sort(key=lambda r: (
+        str(r["entity_type"]), str(r["numero_registro"]).zfill(12)))
+    return rows
+
+
+def compartment_rows(records: list[FundRecord]) -> list[dict]:
+    rows = []
+    for r in records:
+        for c in r.compartments:
+            rows.append({
+                "period": r.period,
+                "compartment_key": (
+                    f"{r.entity_type}:{r.numero_registro}:"
+                    f"{c.numero_compartimento}"
+                ),
+                "fund_key": r.key,
+                "entity_type": r.entity_type,
+                "numero_registro": r.numero_registro,
+                "numero_compartimento": c.numero_compartimento,
+                "denominacion": c.denominacion,
+                "n_classes": len(c.classes),
+                "source_artifact_id": r.provenance.source_artifact_id,
+            })
+    rows.sort(key=lambda r: (
+        str(r["entity_type"]), str(r["numero_registro"]).zfill(12),
+        str(r["numero_compartimento"]).zfill(6)))
+    return rows
+
+
+def share_class_rows(records: list[FundRecord]) -> list[dict]:
+    rows = []
+    for r in records:
+        for j, c in enumerate(r.compartments, start=1):
+            ck = f"{r.entity_type}:{r.numero_registro}:{c.numero_compartimento}"
+            for k, cl in enumerate(c.classes, start=1):
+                rows.append({
+                    "period": r.period,
+                    "share_class_key": f"{ck}:{cl.numero_clase}",
+                    "fund_key": r.key,
+                    "compartment_key": ck,
+                    "entity_type": r.entity_type,
+                    "numero_registro": r.numero_registro,
+                    "numero_compartimento": c.numero_compartimento,
+                    "numero_clase": cl.numero_clase,
+                    "isin_raw": cl.isin_raw,
+                    "isin_state": cl.isin_state.value,
+                    "denominacion_clase": cl.denominacion,
+                    "denominacion_compartimento": c.denominacion,
+                    "source_artifact_id": r.provenance.source_artifact_id,
+                    "xml_locator": (
+                        f"{r.provenance.xml_locator}"
+                        f"/Compartimento[{j}]/Clase[{k}]"
+                    ),
+                    "parser": r.provenance.parser,
+                    "parser_version": r.provenance.parser_version,
+                })
+    rows.sort(key=lambda r: (
+        str(r["entity_type"]), str(r["numero_registro"]).zfill(12),
+        str(r["numero_compartimento"]).zfill(6),
+        str(r["numero_clase"]).zfill(6)))
+    return rows
+
+
 def canonical_fingerprint(*row_sets: list[dict]) -> str:
     """SHA-256 over canonical row serialization — parquet-metadata independent."""
     h = sha256()
@@ -152,41 +299,63 @@ def canonical_fingerprint(*row_sets: list[dict]) -> str:
     return h.hexdigest()
 
 
+def _write_table(rows: list[dict], schema: pa.Schema, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(
+        pa.Table.from_pylist(rows, schema=schema), path, compression="zstd"
+    )
+
+
 def write_period(
     dataset_root: Path | str,
     snaps: list[PortfolioSnapshot],
     *,
     period: str,
     artifact_id: str,
+    records: list[FundRecord] | None = None,
 ) -> dict:
-    """Write period-partitioned positions+quality parquet; return manifest."""
+    """Write period-partitioned parquet tables; return manifest.
+
+    ``dataset_fingerprint`` covers positions+quality only (G1 semantics —
+    unchanged). ``registry_fingerprint`` covers the identity tables.
+    """
     root = Path(dataset_root)
-    pos_dir = root / "positions" / f"period={period}"
-    qal_dir = root / "quality" / f"period={period}"
-    pos_dir.mkdir(parents=True, exist_ok=True)
-    qal_dir.mkdir(parents=True, exist_ok=True)
 
     prow, qrow = position_rows(snaps), quality_rows(snaps)
-    pq.write_table(
-        pa.Table.from_pylist(prow, schema=POSITIONS_SCHEMA),
-        pos_dir / "part-0.parquet",
-        compression="zstd",
-    )
+    if prow:
+        _write_table(prow, POSITIONS_SCHEMA,
+                     root / "positions" / f"period={period}" / "part-0.parquet")
     if qrow:
-        pq.write_table(
-            pa.Table.from_pylist(qrow, schema=QUALITY_SCHEMA),
-            qal_dir / "part-0.parquet",
-            compression="zstd",
-        )
-
+        _write_table(qrow, QUALITY_SCHEMA,
+                     root / "quality" / f"period={period}" / "part-0.parquet")
     fingerprint = canonical_fingerprint(prow, qrow)
-    manifest = {
+
+    manifest: dict = {
         "period": period,
         "source_artifact_id": artifact_id,
         "positions": len(prow),
         "quality_rows": len(qrow),
+        "fondcart_present": bool(prow),
         "dataset_fingerprint": fingerprint,
     }
+
+    if records is not None:
+        frow = fund_rows(records)
+        crow = compartment_rows(records)
+        srow = share_class_rows(records)
+        _write_table(frow, FUNDS_SCHEMA,
+                     root / "funds" / f"period={period}" / "part-0.parquet")
+        _write_table(crow, COMPARTMENTS_SCHEMA,
+                     root / "compartments" / f"period={period}" / "part-0.parquet")
+        _write_table(srow, SHARE_CLASSES_SCHEMA,
+                     root / "share_classes" / f"period={period}" / "part-0.parquet")
+        manifest.update({
+            "funds": len(frow),
+            "compartments": len(crow),
+            "share_classes": len(srow),
+            "registry_fingerprint": canonical_fingerprint(frow, crow, srow),
+        })
+
     (root / "manifests").mkdir(parents=True, exist_ok=True)
     with open(root / "manifests" / f"{period}.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1, sort_keys=True)

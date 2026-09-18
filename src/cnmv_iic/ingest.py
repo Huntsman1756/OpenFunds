@@ -11,10 +11,11 @@ from pathlib import Path
 
 from cnmv_iic.acquisition.client import CnmvClient
 from cnmv_iic.adapters.fondcart import parse_fondcart, reconcile
+from cnmv_iic.adapters.fondregistro import parse_fondregistro
 from cnmv_iic.artifacts.store import ArtifactStore, SourceArtifact, member_family
 from cnmv_iic.errors import NotFoundError, ParseError
 from cnmv_iic.schemas.registry import check_xsd
-from cnmv_iic.storage import read_period_fingerprint, write_period
+from cnmv_iic.storage import write_period
 
 INDEX_PAGE = (
     "https://www.cnmv.es/portal/Publicaciones/Descarga-Informacion-Individual.aspx"
@@ -28,8 +29,12 @@ class UpdateResult:
     artifact_new: bool
     exported: bool
     dataset_fingerprint: str | None
+    registry_fingerprint: str | None
     positions: int
     quality_rows: int
+    funds: int
+    share_classes: int
+    fondcart_present: bool
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
@@ -84,46 +89,74 @@ def update_period(
         data=payload.data,
     )
 
-    existing_fp = read_period_fingerprint(dataset_root, period)
-    if not is_new and existing_fp is not None:
-        manifest_path = Path(dataset_root) / "manifests" / f"{period}.json"
-        m = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_path = Path(dataset_root) / "manifests" / f"{period}.json"
+    manifest: dict = {}
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    needs_positions = manifest.get("dataset_fingerprint") is None
+    needs_registry = manifest.get("registry_fingerprint") is None
+    if not is_new and not (needs_positions or needs_registry):
         return UpdateResult(
             period=period, artifact=artifact, artifact_new=False,
-            exported=False, dataset_fingerprint=existing_fp,
-            positions=m["positions"], quality_rows=m["quality_rows"],
+            exported=False,
+            dataset_fingerprint=manifest["dataset_fingerprint"],
+            registry_fingerprint=manifest.get("registry_fingerprint"),
+            positions=manifest["positions"],
+            quality_rows=manifest["quality_rows"],
+            funds=manifest.get("funds", 0),
+            share_classes=manifest.get("share_classes", 0),
+            fondcart_present=manifest.get("fondcart_present", True),
         )
 
     zf = zipfile.ZipFile(store.raw_path(artifact))
 
     # XSD fingerprint gate — fail closed on unknown schema generations.
-    for fam in ("FONDCART", "FONDPATRIMDISVAR"):
+    for fam in ("FONDCART", "FONDPATRIMDISVAR", "FONDREGISTRO"):
         sha = artifact.xsd_sha256.get(fam)
         if sha is not None:
             check_xsd(fam, sha)
 
+    snaps = []
     cart = _member_xml(zf, "FONDCART")
-    if cart is None:
-        raise ParseError(
-            f"artifact {artifact.source_id} has no FONDCART member "
-            f"(period {period} may not publish portfolio detail)"
+    if cart is not None:
+        cart_name, cart_xml = cart
+        pdv = _member_xml(zf, "FONDPATRIMDISVAR")
+        snaps = parse_fondcart(
+            cart_xml,
+            artifact=artifact,
+            member_name=cart_name,
+            member_sha256=_member_sha(artifact, cart_name),
         )
-    cart_name, cart_xml = cart
-    pdv = _member_xml(zf, "FONDPATRIMDISVAR")
+        reconcile(snaps, pdv[1] if pdv else None)
 
-    snaps = parse_fondcart(
-        cart_xml,
-        artifact=artifact,
-        member_name=cart_name,
-        member_sha256=_member_sha(artifact, cart_name),
-    )
-    reconcile(snaps, pdv[1] if pdv else None)
+    records = None
+    reg = _member_xml(zf, "FONDREGISTRO")
+    if reg is not None:
+        reg_name, reg_xml = reg
+        records = parse_fondregistro(
+            reg_xml,
+            artifact=artifact,
+            member_name=reg_name,
+            member_sha256=_member_sha(artifact, reg_name),
+        )
+    if cart is None and records is None:
+        raise ParseError(
+            f"artifact {artifact.source_id} has neither FONDCART nor "
+            f"FONDREGISTRO members"
+        )
 
     manifest = write_period(
-        dataset_root, snaps, period=period, artifact_id=artifact.source_id
+        dataset_root, snaps, period=period,
+        artifact_id=artifact.source_id, records=records,
     )
     return UpdateResult(
         period=period, artifact=artifact, artifact_new=is_new,
-        exported=True, dataset_fingerprint=manifest["dataset_fingerprint"],
-        positions=manifest["positions"], quality_rows=manifest["quality_rows"],
+        exported=True,
+        dataset_fingerprint=manifest["dataset_fingerprint"],
+        registry_fingerprint=manifest.get("registry_fingerprint"),
+        positions=manifest["positions"],
+        quality_rows=manifest["quality_rows"],
+        funds=manifest.get("funds", 0),
+        share_classes=manifest.get("share_classes", 0),
+        fondcart_present=manifest["fondcart_present"],
     )

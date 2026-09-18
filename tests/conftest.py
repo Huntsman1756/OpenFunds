@@ -65,6 +65,59 @@ PDV_XML = b"""<?xml version="1.0" encoding="utf-8"?>
 """
 
 
+FONDREGISTRO_XML = b"""<?xml version="1.0" encoding="utf-8"?>
+<FondRegistro>
+  <FechaDatos>202512</FechaDatos>
+  <Entidad>
+    <Tipo>FI</Tipo>
+    <NumeroRegistro>9</NumeroRegistro>
+    <Denominacion>FONMARCH, FI</Denominacion>
+    <ETF>NO</ETF>
+    <Gestora>
+      <NumeroRegistroGestora>190</NumeroRegistroGestora>
+      <DenominacionGestora>MARCH ASSET MANAGEMENT, S.G.I.I.C., S.A.U.</DenominacionGestora>
+      <TipoGestora>SGIIC</TipoGestora>
+      <GrupoGestora>
+        <NumeroGrupoGestora>1</NumeroGrupoGestora>
+        <DenominacionGrupoGestora>GRUPO MARCH</DenominacionGrupoGestora>
+      </GrupoGestora>
+    </Gestora>
+    <Depositario>
+      <NumeroRegistroDepositario>211</NumeroRegistroDepositario>
+      <DenominacionDepositario>BANCO DEPOSITARIO, S.A.</DenominacionDepositario>
+      <GrupoDepositario>
+        <NumeroGrupoDepositario>7</NumeroGrupoDepositario>
+        <DenominacionGrupoDepositario>GRUPO DEP</DenominacionGrupoDepositario>
+      </GrupoDepositario>
+    </Depositario>
+    <Compartimento>
+      <NumeroCompartimento>0</NumeroCompartimento>
+      <DenominacionCompartimento>COMPARTIMENTO PRINCIPAL</DenominacionCompartimento>
+      <Clase>
+        <NumeroClase>1</NumeroClase>
+        <ISIN>ES0138841038</ISIN>
+        <DenominacionClase>CLASE A</DenominacionClase>
+      </Clase>
+      <Clase>
+        <NumeroClase>2</NumeroClase>
+        <ISIN>ES0138841004</ISIN>
+        <DenominacionClase>CLASE C</DenominacionClase>
+      </Clase>
+    </Compartimento>
+    <Compartimento>
+      <NumeroCompartimento>1</NumeroCompartimento>
+      <DenominacionCompartimento>COMPARTIMENTO UNO</DenominacionCompartimento>
+      <Clase>
+        <NumeroClase>1</NumeroClase>
+        <ISIN>ES0138841012</ISIN>
+        <DenominacionClase>CLASE S</DenominacionClase>
+      </Clase>
+    </Compartimento>
+  </Entidad>
+</FondRegistro>
+"""
+
+
 def make_zip(members: dict[str, bytes]) -> bytes:
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:

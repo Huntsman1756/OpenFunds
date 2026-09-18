@@ -124,3 +124,130 @@ class PortfolioSnapshot:
              if p.reported_market_value is not None),
             Decimal(0),
         )
+
+
+# ---------------------------------------------------------------------------
+# G2 — regulatory identity (FONDREGISTRO)
+# ---------------------------------------------------------------------------
+
+
+def fund_key(entity_type: str, numero_registro: str) -> str:
+    return f"{entity_type}:{numero_registro}"
+
+
+def compartment_key(entity_type: str, numero_registro: str,
+                    numero_compartimento: str) -> str:
+    return f"{entity_type}:{numero_registro}:{numero_compartimento}"
+
+
+def share_class_key(entity_type: str, numero_registro: str,
+                    numero_compartimento: str, numero_clase: str) -> str:
+    return f"{entity_type}:{numero_registro}:{numero_compartimento}:{numero_clase}"
+
+
+@dataclass(frozen=True)
+class Institution:
+    """Gestora or Depositario as recorded on a fund (registry-scoped)."""
+
+    numero_registro: str | None
+    denominacion: str | None
+    tipo: str | None = None              # gestora only (e.g. 'SGIIC')
+    grupo_numero: str | None = None
+    grupo_denominacion: str | None = None
+
+
+@dataclass(frozen=True)
+class ShareClass:
+    numero_clase: str
+    isin_raw: str | None
+    isin_state: IsinState
+    denominacion: str | None
+
+    def key(self, entity_type: str, numero_registro: str,
+            numero_compartimento: str) -> str:
+        return share_class_key(
+            entity_type, numero_registro, numero_compartimento,
+            self.numero_clase,
+        )
+
+
+@dataclass(frozen=True)
+class Compartment:
+    numero_compartimento: str
+    denominacion: str | None
+    classes: tuple[ShareClass, ...]
+
+
+@dataclass(frozen=True)
+class FundRecord:
+    """One FONDREGISTRO Entidad at one observed period — verbatim identity."""
+
+    entity_type: str
+    numero_registro: str
+    denominacion: str | None
+    etf: str | None                      # 'SI' | 'NO' (verbatim)
+    gestora: Institution
+    depositario: Institution
+    compartments: tuple[Compartment, ...]
+    period: str                          # observed_period (YYYY-MM)
+    provenance: Provenance
+
+    @property
+    def key(self) -> str:
+        return fund_key(self.entity_type, self.numero_registro)
+
+    def portfolio_owners(self) -> list[str]:
+        """Compartment keys = the keys FONDCART reports positions against."""
+        return [
+            compartment_key(
+                self.entity_type, self.numero_registro,
+                c.numero_compartimento,
+            )
+            for c in self.compartments
+        ]
+
+
+class ResolutionKind(StrEnum):
+    EXACT_SHARE_CLASS = "exact_share_class"
+    EXACT_COMPARTMENT = "exact_compartment"
+    EXACT_FUND = "exact_fund"
+    AMBIGUOUS = "ambiguous"
+    NOT_FOUND = "not_found"
+
+
+@dataclass(frozen=True)
+class Resolution:
+    kind: ResolutionKind
+    requested: str
+    portfolio_owners: tuple[str, ...]     # compartment keys for FONDCART
+    share_class_key: str | None = None
+    share_class_isin: str | None = None
+    fund_key: str | None = None
+    registry_artifact_id: str | None = None
+    registry_locator: str | None = None
+    note: str | None = None
+
+
+class IdentityEventKind(StrEnum):
+    NAME_CHANGED = "name_changed"
+    MANAGER_CHANGED = "manager_changed"
+    DEPOSITARY_CHANGED = "depositary_changed"
+    ETF_CHANGED = "etf_changed"
+    SHARE_CLASS_ADDED = "share_class_added"
+    SHARE_CLASS_REMOVED = "share_class_removed"
+    ISIN_CHANGED = "isin_changed"
+    COMPARTMENT_ADDED = "compartment_added"
+    COMPARTMENT_REMOVED = "compartment_removed"
+
+
+@dataclass(frozen=True)
+class IdentityEvent:
+    """Mechanical diff between two registry observations — no cause inferred."""
+
+    kind: IdentityEventKind
+    fund_key: str
+    field: str
+    old: str | None
+    new: str | None
+    from_period: str
+    to_period: str

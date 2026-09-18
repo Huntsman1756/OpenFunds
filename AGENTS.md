@@ -2,15 +2,29 @@
 
 ## Project state
 
-G1 vertical slice **implemented and verified live**:
-`cnmv-iic update --period 2012-03|2025-12` runs acquisition → artifact →
-FONDCART → Parquet end-to-end against real CNMV. 27 unit tests, ruff and
-mypy clean. Name: `cnmv-iic` (import `cnmv_iic`) — **not** "OpenFunds ES"
+G1 holdings ledger **PASS** (`docs/g1/results.md`, tag `g1-holdings-pass`,
+commit `55c982a`). G2 regulatory identity **implemented and verified live**
+(`docs/g2/results.md`): FONDREGISTRO adapter → funds/compartments/
+share_classes Parquet tables → fail-closed resolution → ISIN-aware
+`holdings` plus `fund` / `share-class` / `manager` / `depositary` /
+`fund-events` commands. 49 unit tests, ruff and mypy clean.
+Name: `cnmv-iic` (import `cnmv_iic`) — **not** "OpenFunds ES"
 (openfunds.org collision, ADR-006).
 
-Next gates (post-G1, not started): FONDMENS/FONDTRIM/FONDREGISTRO adapters
-(share-class ISIN lookup needs FONDREGISTRO), FONDDERI verbatim records,
-portfolio-diff only after cadence semantics formalized (Q/Q ≤2022, H/H ≥2023).
+G2 semantics worth knowing:
+- Canonical keys: `fund_key=FI:9`, `compartment_key=FI:9:0`,
+  `share_class_key=FI:9:0:1`. Compartment key = FONDCART portfolio owner —
+  N classes share one portfolio, never duplicated.
+- Resolution kinds: exact_share_class / exact_compartment / exact_fund /
+  ambiguous / not_found. ISINs resolve only when `isin_state=valid`.
+- Non-cadence months export registry-only (`fondcart_present: false`);
+  `holdings` falls back to latest positions period <= as-of.
+- `registry_fingerprint` covers identity tables; G1 `dataset_fingerprint`
+  scope (positions+quality) is unchanged.
+
+Next gates (post-G2, not started): FONDMENS (NAV/AUM/investors), FONDTRIM +
+FONDPATRIMDISVAR (fees/returns), FONDDERI verbatim records, portfolio-diff
+only after cadence semantics formalized (Q/Q ≤2022, H/H ≥2023).
 
 ## Verified environment facts
 - Windows, Python 3.11+ (uv-managed venv shadows system python — install
@@ -30,6 +44,11 @@ portfolio-diff only after cadence semantics formalized (Q/Q ≤2022, H/H ≥2023
 - FONDCART real structure: `FondCart/FechaDatos(YYYYMM)/Entidad(Tipo,
   NumeroRegistro)/Compartimento(NumeroCompartimento)/InversionesFinancieras(
   ClaseIF, DescripcionIF, CodigoISIN?, DescripcionValor, Divisa?, ValorMercado)`.
+- FONDREGISTRO ships in every monthly ZIP (incl. non-cadence months);
+  structure `FondRegistro/FechaDatos/Entidad(Tipo, NumeroRegistro,
+  Denominacion, ETF, Gestora, Depositario)/Compartimento(
+  NumeroCompartimento, DenominacionCompartimento)/Clase(NumeroClase, ISIN,
+  DenominacionClase)`. Share-class ISINs unique per period in samples.
 - ValorMercado is always dot-decimal scale-2; DescripcionIF has 12 labels,
   only `Depositos` is cash.
 

@@ -1,4 +1,4 @@
-"""cnmv-iic CLI — G1 vertical slice."""
+"""cnmv-iic CLI — G1 holdings slice + G2 regulatory identity."""
 
 from __future__ import annotations
 
@@ -14,7 +14,14 @@ import typer
 from cnmv_iic.artifacts.store import ArtifactStore
 from cnmv_iic.errors import CnmvIicError
 from cnmv_iic.ingest import update_period
-from cnmv_iic.query import dataset_info, funds_holding
+from cnmv_iic.query import (
+    dataset_info,
+    fund_info,
+    funds_by_institution,
+    funds_holding,
+    identity_events,
+    share_class_info,
+)
 from cnmv_iic.query import holdings as query_holdings
 
 app = typer.Typer(
@@ -46,21 +53,24 @@ def _emit(obj: Any, as_json: bool) -> None:
         typer.echo(json.dumps(obj, default=default, indent=1, sort_keys=True))
 
 
+def _run(fn: Any) -> Any:
+    try:
+        return fn()
+    except CnmvIicError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+
 @app.command()
 def update(
     period: Annotated[str, typer.Option(help="Publication period YYYY-MM")],
     data_dir: Annotated[Path | None, typer.Option()] = None,
     json_out: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Download one CNMV period and export canonical FONDCART positions."""
+    """Download one CNMV period; export canonical positions + registry."""
     root = data_dir or _data_dir()
-    try:
-        result = update_period(
-            ArtifactStore(root / "artifacts"), root / "dataset", period
-        )
-    except CnmvIicError as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(1) from exc
+    result = _run(lambda: update_period(
+        ArtifactStore(root / "artifacts"), root / "dataset", period))
     _emit(
         {
             "period": result.period,
@@ -68,9 +78,13 @@ def update(
             "artifact_sha256": result.artifact.sha256,
             "artifact_new_version": result.artifact_new,
             "exported": result.exported,
+            "fondcart_present": result.fondcart_present,
             "dataset_fingerprint": result.dataset_fingerprint,
+            "registry_fingerprint": result.registry_fingerprint,
             "positions": result.positions,
             "quality_rows": result.quality_rows,
+            "funds": result.funds,
+            "share_classes": result.share_classes,
         },
         json_out,
     )
@@ -79,20 +93,134 @@ def update(
 @app.command()
 def holdings(
     fund: Annotated[str, typer.Argument(
-        help="CNMV key FI:<numero_registro>:<compartimento> or numero_registro"
+        help="Share-class ISIN, or CNMV key FI:<reg>:<comp> / FI:<reg> / <reg>"
     )],
     as_of: Annotated[str | None, typer.Option(help="YYYY-MM-DD or YYYY-MM")] = None,
     data_dir: Annotated[Path | None, typer.Option()] = None,
     json_out: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Reported portfolio positions for one fund at latest period <= as-of."""
+    """Reported portfolio positions at latest period <= as-of.
+
+    A share-class ISIN resolves through FONDREGISTRO to its compartment
+    portfolio owner — several classes may share one portfolio (never
+    duplicated). Resolution metadata is included in the output.
+    """
     root = data_dir or _data_dir()
-    try:
-        period, rows = query_holdings(root / "dataset", fund, as_of)
-    except CnmvIicError as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(1) from exc
-    _emit({"period": period, "fund": fund, "positions": rows}, json_out)
+    period, resolution, rows = _run(
+        lambda: query_holdings(root / "dataset", fund, as_of))
+    _emit(
+        {"period": period, "resolution": resolution, "positions": rows},
+        json_out,
+    )
+
+
+@app.command()
+def fund(
+    identifier: Annotated[str, typer.Argument(
+        help="Share-class ISIN or CNMV key FI:<reg>[:<comp>[:<clase>]]"
+    )],
+    as_of: Annotated[str | None, typer.Option(help="YYYY-MM-DD or YYYY-MM")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """FONDREGISTRO identity record for a fund."""
+    root = data_dir or _data_dir()
+    period, resolution, record = _run(
+        lambda: fund_info(root / "dataset", identifier, as_of))
+    _emit(
+        {"period": period, "resolution": resolution, **record},
+        json_out,
+    )
+
+
+@app.command(name="share-class")
+def share_class(
+    identifier: Annotated[str, typer.Argument(
+        help="Share-class ISIN or key FI:<reg>:<comp>:<clase>"
+    )],
+    as_of: Annotated[str | None, typer.Option(help="YYYY-MM-DD or YYYY-MM")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """One share class and its fund context (FONDREGISTRO)."""
+    root = data_dir or _data_dir()
+    period, resolution, record = _run(
+        lambda: share_class_info(root / "dataset", identifier, as_of))
+    _emit(
+        {"period": period, "resolution": resolution, **record},
+        json_out,
+    )
+
+
+@app.command()
+def manager(
+    numero_registro: Annotated[str, typer.Argument(
+        help="CNMV gestora registration number (e.g. 190)"
+    )],
+    funds: Annotated[bool, typer.Option(
+        "--funds", help="List managed funds")] = False,
+    as_of: Annotated[str | None, typer.Option(help="YYYY-MM-DD or YYYY-MM")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Institution record + (with --funds) the funds it manages."""
+    root = data_dir or _data_dir()
+    period, inst, rows = _run(lambda: funds_by_institution(
+        root / "dataset", "gestora", numero_registro, as_of))
+    out: dict = {"period": period, "institution": inst,
+                 "fund_count": len(rows)}
+    if funds:
+        out["funds"] = rows
+    _emit(out, json_out)
+
+
+@app.command()
+def depositary(
+    numero_registro: Annotated[str, typer.Argument(
+        help="CNMV depositario registration number (e.g. 211)"
+    )],
+    funds: Annotated[bool, typer.Option(
+        "--funds", help="List deposited funds")] = False,
+    as_of: Annotated[str | None, typer.Option(help="YYYY-MM-DD or YYYY-MM")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Institution record + (with --funds) the funds it deposits."""
+    root = data_dir or _data_dir()
+    period, inst, rows = _run(lambda: funds_by_institution(
+        root / "dataset", "depositario", numero_registro, as_of))
+    out: dict = {"period": period, "institution": inst,
+                 "fund_count": len(rows)}
+    if funds:
+        out["funds"] = rows
+    _emit(out, json_out)
+
+
+@app.command(name="fund-events")
+def fund_events(
+    from_period: Annotated[str, typer.Option(
+        "--from", help="Earlier observed period YYYY-MM")],
+    to_period: Annotated[str, typer.Option(
+        "--to", help="Later observed period YYYY-MM")],
+    fund: Annotated[str | None, typer.Option(
+        help="Restrict to one fund (ISIN or CNMV key)")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Mechanical identity diff between two registry snapshots.
+
+    Reports WHAT changed (name/manager/depositary/classes/ISINs/
+    compartments) — never WHY. Fund additions/removals as a whole are
+    out of scope for this gate.
+    """
+    root = data_dir or _data_dir()
+    events = _run(lambda: identity_events(
+        root / "dataset", from_period, to_period, fund))
+    _emit(
+        {"from_period": from_period, "to_period": to_period,
+         "events": events},
+        json_out,
+    )
 
 
 @app.command(name="funds-holding")
@@ -104,11 +232,8 @@ def funds_holding_cmd(
 ) -> None:
     """Funds REPORTING A PORTFOLIO POSITION in `isin` (not beneficial owners)."""
     root = data_dir or _data_dir()
-    try:
-        period, rows = funds_holding(root / "dataset", isin, as_of)
-    except CnmvIicError as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(1) from exc
+    period, rows = _run(
+        lambda: funds_holding(root / "dataset", isin, as_of))
     _emit(
         {
             "period": period,
@@ -125,13 +250,9 @@ def dataset_info_cmd(
     data_dir: Annotated[Path | None, typer.Option()] = None,
     json_out: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Periods, row counts, quality states, dataset fingerprints."""
+    """Periods, row counts, quality states, fingerprints."""
     root = data_dir or _data_dir()
-    try:
-        _emit(dataset_info(root / "dataset"), json_out)
-    except CnmvIicError as exc:
-        typer.echo(f"error: {exc}", err=True)
-        raise typer.Exit(1) from exc
+    _emit(_run(lambda: dataset_info(root / "dataset")), json_out)
 
 
 @app.command()

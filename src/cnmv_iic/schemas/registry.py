@@ -100,9 +100,40 @@ FONDPATRIMDISVAR_ELEMENTS = frozenset({
     "FondPatrimDisVar/Entidad/Compartimento/PatrimonioFinPeriodoActual",
 })
 
+FONDREGISTRO_ELEMENTS = frozenset({
+    "FondRegistro",
+    "FondRegistro/FechaDatos",
+    "FondRegistro/Entidad",
+    "FondRegistro/Entidad/Tipo",
+    "FondRegistro/Entidad/NumeroRegistro",
+    "FondRegistro/Entidad/Denominacion",
+    "FondRegistro/Entidad/ETF",
+    "FondRegistro/Entidad/Gestora",
+    "FondRegistro/Entidad/Gestora/NumeroRegistroGestora",
+    "FondRegistro/Entidad/Gestora/DenominacionGestora",
+    "FondRegistro/Entidad/Gestora/TipoGestora",
+    "FondRegistro/Entidad/Gestora/GrupoGestora",
+    "FondRegistro/Entidad/Gestora/GrupoGestora/NumeroGrupoGestora",
+    "FondRegistro/Entidad/Gestora/GrupoGestora/DenominacionGrupoGestora",
+    "FondRegistro/Entidad/Depositario",
+    "FondRegistro/Entidad/Depositario/NumeroRegistroDepositario",
+    "FondRegistro/Entidad/Depositario/DenominacionDepositario",
+    "FondRegistro/Entidad/Depositario/GrupoDepositario",
+    "FondRegistro/Entidad/Depositario/GrupoDepositario/NumeroGrupoDepositario",
+    "FondRegistro/Entidad/Depositario/GrupoDepositario/DenominacionGrupoDepositario",
+    "FondRegistro/Entidad/Compartimento",
+    "FondRegistro/Entidad/Compartimento/NumeroCompartimento",
+    "FondRegistro/Entidad/Compartimento/DenominacionCompartimento",
+    "FondRegistro/Entidad/Compartimento/Clase",
+    "FondRegistro/Entidad/Compartimento/Clase/NumeroClase",
+    "FondRegistro/Entidad/Compartimento/Clase/ISIN",
+    "FondRegistro/Entidad/Compartimento/Clase/DenominacionClase",
+})
+
 KNOWN_ELEMENTS: dict[str, frozenset[str]] = {
     "FONDCART": FONDCART_ELEMENTS,
     "FONDPATRIMDISVAR": FONDPATRIMDISVAR_ELEMENTS,
+    "FONDREGISTRO": FONDREGISTRO_ELEMENTS,
 }
 
 
