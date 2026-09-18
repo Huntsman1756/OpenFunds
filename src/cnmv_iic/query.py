@@ -1498,6 +1498,24 @@ def _diff_fingerprint(owner_payloads: dict) -> str:
     return hashlib.sha256(canon.encode()).hexdigest()
 
 
+def _expected_previous_published(to_period: str) -> str | None:
+    """Expected previous FONDCART publication month under the
+    MEASURED post-2023 June+December cadence (docs/g0, verified:
+    2023-06, 2025-06, 2025-12 present; 2024-03, 2025-03 absent).
+
+    Returns None outside the measured window — pre-2023 cadence is
+    not asserted here, so no missing snapshot is claimed.
+    """
+    y, m = int(to_period[:4]), int(to_period[5:7])
+    if m == 12:
+        expected = f"{y}-06"
+    elif m == 6:
+        expected = f"{y - 1}-12"
+    else:
+        return None
+    return expected if expected >= "2023-06" else None
+
+
 def _fondcart_periods(
     con: duckdb.DuckDBPyConnection, owner: str | None = None,
 ) -> list[str]:
@@ -1525,6 +1543,11 @@ def portfolio_diff(
     ``previous=True`` selects the owner's latest available snapshot
     strictly before ``to_period`` (``adjacent_available_snapshots``);
     explicit ``from_period``+``to_period`` = ``explicit_periods``.
+
+    ``--previous`` never silently skips a measured published
+    snapshot: under the verified post-2023 June+December cadence it
+    fails with ``previous_published_snapshot_not_loaded=<period>``
+    when that snapshot is absent from the dataset.
 
     Returns ``(meta, per_owner_rows)``.
     """
@@ -1571,6 +1594,15 @@ def portfolio_diff(
     for ck in owners:
         available = _fondcart_periods(con, ck)
         if previous:
+            # never silently skip a measured published snapshot:
+            # if the expected previous publication isn't loaded, fail
+            # naming it — don't jump years backward in silence.
+            expected = _expected_previous_published(to_period)
+            if expected is not None and expected not in cart_periods:
+                raise NotFoundError(
+                    f"previous_published_snapshot_not_loaded="
+                    f"{expected} — run `cnmv-iic update --period "
+                    f"{expected}` first")
             earlier = [p for p in available if p < to_period]
             if earlier:
                 fp = earlier[-1]

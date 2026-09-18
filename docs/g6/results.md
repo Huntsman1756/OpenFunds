@@ -41,8 +41,11 @@ cnmv-iic portfolio-diff FI:9:0 2012-03 2025-12
    mgmt -0.95 (context only — no causal attribution)
 
 cnmv-iic portfolio-diff FI:9:0 --as-of 2025-12 --previous
- → adjacent_available_snapshots: resolved 2012-03
-   (owner's latest available — NOT a quarter)
+ → error: previous_published_snapshot_not_loaded=2025-06
+   — run `cnmv-iic update --period 2025-06` first
+   (never silently jumps to the only loaded snapshot, 2012-03;
+   post-2023 June+December cadence is measured — the published
+   previous is 2025-06 and it is absent locally)
 
 cnmv-iic portfolio-diff FI:4209:0 2012-03 2025-12
  → 5 old / 102 new, conservation holds
@@ -76,7 +79,7 @@ change only.
 
 | # | Gate | Evidence |
 |---|------|----------|
-| 1 | Deterministic snapshot selection | `--previous` picks owner's latest available — tested (`2025-09` over `2025-06`) |
+| 1 | Deterministic snapshot selection | `--previous` never silently skips a measured published snapshot — fails `previous_published_snapshot_not_loaded=2025-06` (live + tested); outside the measured window, dataset-local previous (tested 2018-03→2020-03) |
 | 2 | No comparisons vs unavailable periods | `NotFoundError` — "not a published snapshot" (both directions tested) |
 | 3 | Exact identifier matching measured | G6-R §2 — 98.2–99.4% unique-in-portfolio |
 | 4 | Duplicate identifiers documented | `unresolved` groups w/ both sides' rows preserved — never summed |

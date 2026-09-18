@@ -486,8 +486,9 @@ def portfolio_diff_cmd(
         help="later snapshot YYYY-MM (with --previous)")] = None,
     previous: Annotated[bool, typer.Option(
         "--previous",
-        help="compare to the owner's previous published snapshot"
-             " — NOT previous quarter")] = False,
+        help="compare to the owner's previous snapshot; fails with "
+             "previous_published_snapshot_not_loaded if the measured "
+             "published snapshot is not in the dataset")] = False,
     data_dir: Annotated[Path | None, typer.Option()] = None,
     json_out: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:

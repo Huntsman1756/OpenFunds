@@ -342,3 +342,47 @@ def test_portfolio_history_counts(artifact, tmp_path):
     # stored artifact id is the row-level provenance artifact
     assert snaps["2025-12"]["source_artifact_id"] == (
         artifact.source_id)
+
+
+def test_previous_fails_when_published_snapshot_missing(artifact,
+                                                        tmp_path):
+    # measured cadence: post-2023 FONDCART publishes June+December.
+    # to=2025-12 -> expected previous 2025-06; not loaded -> fail
+    # naming it, never silently jumping backward.
+    mar = _cart("202503", [
+        _pos("I", "R", "US0378331005", "A", "USD", "100.00")])
+    new = _cart("202512", [
+        _pos("I", "R", "US0378331005", "A", "USD", "110.00")])
+    _load(artifact, mar, tmp_path, "2025-03")
+    _load(artifact, new, tmp_path, "2025-12")
+    with pytest.raises(
+            NotFoundError,
+            match="previous_published_snapshot_not_loaded=2025-06"):
+        portfolio_diff(tmp_path / "dataset", "FI:9:0", None,
+                       "2025-12", previous=True)
+
+
+def test_previous_uses_expected_when_loaded(artifact, tmp_path):
+    jun = _cart("202506", [
+        _pos("I", "R", "US0378331005", "A", "USD", "105.00")])
+    new = _cart("202512", [
+        _pos("I", "R", "US0378331005", "A", "USD", "110.00")])
+    _load(artifact, jun, tmp_path, "2025-06")
+    _load(artifact, new, tmp_path, "2025-12")
+    _, rows = portfolio_diff(tmp_path / "dataset", "FI:9:0", None,
+                             "2025-12", previous=True)
+    assert rows[0]["from_period"] == "2025-06"   # published previous
+
+
+def test_previous_pre2023_dataset_local(artifact, tmp_path):
+    # outside the measured window no missing snapshot is claimed —
+    # dataset-local previous is the honest resolution
+    old = _cart("201803", [
+        _pos("I", "R", "US0378331005", "A", "USD", "100.00")])
+    new = _cart("202003", [
+        _pos("I", "R", "US0378331005", "A", "USD", "110.00")])
+    _load(artifact, old, tmp_path, "2018-03")
+    _load(artifact, new, tmp_path, "2020-03")
+    _, rows = portfolio_diff(tmp_path / "dataset", "FI:9:0", None,
+                             "2020-03", previous=True)
+    assert rows[0]["from_period"] == "2018-03"

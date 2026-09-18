@@ -144,3 +144,14 @@ Conservation gate (only where identity is unambiguous):
 `matched + added = count(new)`, `matched + removed = count(old)`;
 ambiguous groups add `unresolved_old`/`unresolved_new` to the equation
 — never "fixed" by heuristic.
+
+Snapshot selection semantics: `--previous` means the owner's previous
+snapshot under the MEASURED cadence — post-2023 FONDCART publishes
+June+December (verified: 2023-06, 2025-06, 2025-12 present; 2024-03,
+2025-03 absent). If the expected previous publication is not loaded
+locally, selection fails with
+`previous_published_snapshot_not_loaded=<period>` rather than silently
+jumping to an older loaded snapshot. Outside the measured window
+(pre-2023, where full publication cadence is not asserted here) it
+resolves to the owner's latest available dataset-local snapshot —
+and says so.

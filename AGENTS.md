@@ -122,7 +122,11 @@ G6 semantics worth knowing (portfolio change, measured contract
 docs/g6/):
 - Periods are published snapshots, not quarters: `explicit_periods` or
   `adjacent_available_snapshots` (`--previous` = owner's latest
-  available snapshot strictly before to_period).
+  available snapshot strictly before to_period, BUT it never
+  silently skips a measured published snapshot — under the verified
+  post-2023 June+December cadence it fails with
+  `previous_published_snapshot_not_loaded=<period>`; outside the
+  measured window it resolves dataset-local).
 - Matching is two-phase: identity matching first, change
   classification second — never "value changed → same security".
 - `positions.fund_key` IS the compartment key (FundIdentity includes
