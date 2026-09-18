@@ -553,3 +553,145 @@ class ShareClassQuarterlyMetrics:
     @property
     def fund_key(self) -> str:
         return fund_key(self.entity_type, self.numero_registro)
+
+
+# ---------------------------------------------------------------------------
+# G5 — FONDDERI: derivative-operation evidence ledger
+# ---------------------------------------------------------------------------
+
+
+class DerivativeSide(StrEnum):
+    """Official Descripcion facet: right vs obligation (documented)."""
+
+    DERECHO = "derecho"
+    OBLIGACION = "obligacion"
+
+
+class UnderlierClass(StrEnum):
+    """Official Descripcion facet: underlier asset class (4 values)."""
+
+    RENTA_FIJA = "renta_fija"
+    RENTA_VARIABLE = "renta_variable"
+    TIPO_DE_CAMBIO = "tipo_de_cambio"
+    OTROS = "otros"
+
+
+class DerivativeObjective(StrEnum):
+    """Official Objetivo coded field (3 documented values)."""
+
+    COBERTURA = "cobertura"
+    INVERSION = "inversion"
+    OBJETIVO_CONCRETO_DE_RENTABILIDAD = "objetivo_concreto_de_rentabilidad"
+
+
+class DerivativeRepresentation(StrEnum):
+    """How much of a row is source-structured (never inferred)."""
+
+    STRUCTURED = "structured"
+    PARTIALLY_STRUCTURED = "partially_structured"
+    VERBATIM_ONLY = "verbatim_only"
+
+
+#: Official Descripcion composite -> (side, underlier class). This is a
+#: documented closed code (explanatory PDF), not text inference.
+DERI_DESCRIPCION_FACETS: dict[str, tuple[DerivativeSide, UnderlierClass]] = {
+    "Obligaciones en renta fija": (
+        DerivativeSide.OBLIGACION, UnderlierClass.RENTA_FIJA),
+    "Obligaciones en renta variable": (
+        DerivativeSide.OBLIGACION, UnderlierClass.RENTA_VARIABLE),
+    "Obligaciones en tipos de cambio": (
+        DerivativeSide.OBLIGACION, UnderlierClass.TIPO_DE_CAMBIO),
+    "Otras Obligaciones": (
+        DerivativeSide.OBLIGACION, UnderlierClass.OTROS),
+    "Derechos en renta fija": (
+        DerivativeSide.DERECHO, UnderlierClass.RENTA_FIJA),
+    "Derechos en renta variable": (
+        DerivativeSide.DERECHO, UnderlierClass.RENTA_VARIABLE),
+    "Derechos en tipos de cambio": (
+        DerivativeSide.DERECHO, UnderlierClass.TIPO_DE_CAMBIO),
+    "Otros Derechos": (
+        DerivativeSide.DERECHO, UnderlierClass.OTROS),
+}
+
+DERI_OBJETIVO_VALUES: dict[str, DerivativeObjective] = {
+    "Cobertura": DerivativeObjective.COBERTURA,
+    "Inversión": DerivativeObjective.INVERSION,
+    "Objetivo Concreto de Rentabilidad": (
+        DerivativeObjective.OBJETIVO_CONCRETO_DE_RENTABILIDAD),
+}
+
+
+@dataclass(frozen=True)
+class CompartmentDerivativeOperation:
+    """One OperativaDerivados row from FONDDERI (docs/g5/contract.md).
+
+    Measured grain: ``(compartment_key, operation_ordinal)`` — the file
+    contains ZERO ``Clase`` elements; one row per reported derivative
+    operation. Compartments report even with zero operations (explicit
+    empty state, coverage-level — not fabricated rows).
+
+    Source-structured fields only:
+
+    - ``descripcion`` is a documented closed enum (8 values); its two
+      facets (``side``, ``underlier_class``) are decomposed per the
+      official document — never regex-parsed.
+    - ``objetivo`` is a documented coded field (3 values).
+    - ``importe`` is the committed nominal amount IN EUR per the
+      explanatory PDF ("importe nominal comprometido expresado en
+      euros") — signed, scale 2; negatives observed.
+    - ``subyacente``/``instrumento`` are officially "texto no
+      normalizado" — verbatim, never parsed into product attributes.
+    """
+
+    entity_type: str
+    numero_registro: str
+    numero_compartimento: str
+    operation_index: int            # 1-based ordinal within compartment
+    # verbatim + documented facets
+    descripcion: str                # closed-enum label, verbatim
+    side: DerivativeSide
+    underlier_class: UnderlierClass
+    # officially non-normalized text — verbatim only
+    subyacente: str
+    instrumento: str
+    # committed nominal, EUR (documented basis), signed
+    importe: Decimal
+    objetivo: DerivativeObjective | None   # 1 absent in 2014-03
+    # entity-level attribute
+    codigo_divisa_iic: str | None
+    representation: DerivativeRepresentation
+    registry_state: RegistryJoinState
+    period: str                     # observed_period (YYYY-MM)
+    provenance: Provenance
+
+    @property
+    def compartment_key(self) -> str:
+        return compartment_key(
+            self.entity_type, self.numero_registro,
+            self.numero_compartimento,
+        )
+
+    @property
+    def fund_key(self) -> str:
+        return fund_key(self.entity_type, self.numero_registro)
+
+
+@dataclass(frozen=True)
+class CompartmentDerivativeCoverage:
+    """Per-compartment reporting state from FONDDERI.
+
+    A compartment present with zero OperativaDerivados is an
+    explicitly reported no-derivatives state — different from a
+    compartment absent from the file entirely.
+    """
+
+    compartment_key: str
+    fund_key: str
+    entity_type: str
+    numero_registro: str
+    numero_compartimento: str
+    codigo_divisa_iic: str | None
+    n_operations: int               # 0 = explicitly reported none
+    registry_state: RegistryJoinState
+    period: str
+    provenance: Provenance

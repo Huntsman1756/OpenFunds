@@ -94,6 +94,7 @@ def update(
             "daily_fingerprint": result.daily_fingerprint,
             "quarterly_fingerprint": result.quarterly_fingerprint,
             "patrimony_fingerprint": result.patrimony_fingerprint,
+            "derivatives_fingerprint": result.derivatives_fingerprint,
             "positions": result.positions,
             "quality_rows": result.quality_rows,
             "funds": result.funds,
@@ -101,6 +102,10 @@ def update(
             "daily_observations": result.daily_observations,
             "quarterly_metrics": result.quarterly_metrics,
             "patrimony_records": result.patrimony_records,
+            "derivative_operations": result.derivative_operations,
+            "derivative_coverage_records":
+                result.derivative_coverage_records,
+            "fondderi_present": result.fondderi_present,
         },
         json_out,
     )

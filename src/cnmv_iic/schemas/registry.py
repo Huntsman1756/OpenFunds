@@ -200,8 +200,29 @@ FONDTRIM_ELEMENTS = frozenset({
     f"{_T_CLASE}/Volatilidad_VL/Volatilidad_T_3",
 })
 
+_DERI_OP = "FondDeri/Entidad/Compartimento/OperativaDerivados"
+
+FONDDERI_ELEMENTS = frozenset({
+    "FondDeri",
+    "FondDeri/FechaDatos",
+    "FondDeri/Entidad",
+    "FondDeri/Entidad/Tipo",
+    "FondDeri/Entidad/NumeroRegistro",
+    "FondDeri/Entidad/CodigoDivisaIIC",
+    "FondDeri/Entidad/Compartimento",
+    "FondDeri/Entidad/Compartimento/NumeroCompartimento",
+    _DERI_OP,
+    f"{_DERI_OP}/Descripcion",
+    f"{_DERI_OP}/Subyacente",
+    f"{_DERI_OP}/Instrumento",
+    f"{_DERI_OP}/Importe",
+    f"{_DERI_OP}/Objetivo",
+})
+
+
 KNOWN_ELEMENTS: dict[str, frozenset[str]] = {
     "FONDCART": FONDCART_ELEMENTS,
+    "FONDDERI": FONDDERI_ELEMENTS,
     "FONDPATRIMDISVAR": FONDPATRIMDISVAR_ELEMENTS,
     "FONDREGISTRO": FONDREGISTRO_ELEMENTS,
     "FONDMENS": FONDMENS_ELEMENTS,
@@ -288,6 +309,31 @@ DEVIATIONS: tuple[Deviation, ...] = (
         periods_observed=("2012-03", "2025-12"),
         note="1 class per era lacks CodigoDivisa and all metric elements — "
              "identity-only row (like FONDMENS missing blocks)",
+    ),
+    Deviation(
+        family="FONDDERI",
+        element_path="Entidad/CodigoDivisaIIC",
+        kind="MISSING_REQUIRED_ELEMENT",
+        periods_observed=("2025-12",),
+        note="287 of 1,668 entities lack CodigoDivisaIIC — same gap "
+             "as FONDTRIM",
+    ),
+    Deviation(
+        family="FONDDERI",
+        element_path="Entidad/Compartimento/OperativaDerivados/Objetivo",
+        kind="MISSING_REQUIRED_ELEMENT",
+        periods_observed=("2014-03",),
+        note="1 operation in 49,522 across all sampled periods lacks "
+             "Objetivo — NULL, not inferred",
+    ),
+    Deviation(
+        family="FONDDERI",
+        element_path="Entidad/Compartimento/OperativaDerivados",
+        kind="EMPTY_CONTAINER",
+        periods_observed=("2012-03", "2025-12"),
+        note="compartments with zero OperativaDerivados are an "
+             "explicitly reported no-derivatives state (809 in "
+             "2012-03, 772 in 2025-12), not absent data",
     ),
 )
 

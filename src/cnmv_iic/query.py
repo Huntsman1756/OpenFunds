@@ -39,7 +39,8 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
         raise NotFoundError(f"no dataset under {root} — run `cnmv-iic update` first")
     con = duckdb.connect(database=":memory:")
     for table in ("positions", "quality", "funds", "compartments",
-                  "share_classes", "daily", "quarterly", "patrimony"):
+                  "share_classes", "daily", "quarterly", "patrimony",
+                  "derivatives", "derivative_coverage"):
         if (root / table).exists():
             glob = str(root / table / "period=*" / "*.parquet")
             con.execute(

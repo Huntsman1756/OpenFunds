@@ -23,6 +23,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from cnmv_iic.domain import (
+    CompartmentDerivativeCoverage,
+    CompartmentDerivativeOperation,
     CompartmentPatrimonySnapshot,
     FundRecord,
     PortfolioSnapshot,
@@ -552,6 +554,53 @@ def quarterly_rows(rows_in: list[ShareClassQuarterlyMetrics]) -> list[dict]:
     return rows
 
 
+DERIVATIVES_SCHEMA = pa.schema([
+    ("period", pa.string()),                 # observed_period YYYY-MM
+    ("compartment_key", pa.string()),        # = portfolio_owner_key
+    ("fund_key", pa.string()),
+    ("entity_type", pa.string()),
+    ("numero_registro", pa.string()),
+    ("numero_compartimento", pa.string()),
+    ("operation_index", pa.int32()),         # 1-based ordinal in compartment
+    ("descripcion", pa.string()),            # closed-enum label, verbatim
+    ("side", pa.string()),                   # derecho | obligacion
+    ("underlier_class", pa.string()),        # renta_fija|renta_variable|...
+    ("subyacente", pa.string()),             # verbatim, officially non-normalized
+    ("instrumento", pa.string()),            # verbatim, officially non-normalized
+    ("importe", pa.decimal128(38, 2)),       # nominal comprometido, EUR, signed
+    ("objetivo", pa.string()),               # cobertura|inversion|ocr | NULL
+    ("codigo_divisa_iic", pa.string()),      # IIC denomination (NOT importe unit)
+    ("representation", pa.string()),         # partially_structured today
+    ("registry_state", pa.string()),
+    ("source_artifact_id", pa.string()),
+    ("source_sha256", pa.string()),
+    ("member_name", pa.string()),
+    ("member_sha256", pa.string()),
+    ("xml_locator", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+DERIVATIVE_COVERAGE_SCHEMA = pa.schema([
+    ("period", pa.string()),
+    ("compartment_key", pa.string()),
+    ("fund_key", pa.string()),
+    ("entity_type", pa.string()),
+    ("numero_registro", pa.string()),
+    ("numero_compartimento", pa.string()),
+    ("codigo_divisa_iic", pa.string()),
+    ("n_operations", pa.int32()),            # 0 = explicitly reported none
+    ("registry_state", pa.string()),
+    ("source_artifact_id", pa.string()),
+    ("source_sha256", pa.string()),
+    ("member_name", pa.string()),
+    ("member_sha256", pa.string()),
+    ("xml_locator", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+
 def patrimony_rows(rows_in: list[CompartmentPatrimonySnapshot]) -> list[dict]:
     rows = []
     for m in rows_in:
@@ -635,6 +684,67 @@ def _write_table(rows: list[dict], schema: pa.Schema, path: Path) -> None:
     )
 
 
+def derivative_rows(rows_in: list[CompartmentDerivativeOperation]) -> list[dict]:
+    rows = []
+    for m in sorted(
+            rows_in, key=lambda m: (m.compartment_key, m.operation_index)):
+        p = m.provenance
+        rows.append({
+            "period": m.period,
+            "compartment_key": m.compartment_key,
+            "fund_key": m.fund_key,
+            "entity_type": m.entity_type,
+            "numero_registro": m.numero_registro,
+            "numero_compartimento": m.numero_compartimento,
+            "operation_index": m.operation_index,
+            "descripcion": m.descripcion,
+            "side": m.side.value,
+            "underlier_class": m.underlier_class.value,
+            "subyacente": m.subyacente,
+            "instrumento": m.instrumento,
+            "importe": m.importe,
+            "objetivo": m.objetivo.value if m.objetivo else None,
+            "codigo_divisa_iic": m.codigo_divisa_iic,
+            "representation": m.representation.value,
+            "registry_state": m.registry_state.value,
+            "source_artifact_id": p.source_artifact_id,
+            "source_sha256": p.source_sha256,
+            "member_name": p.member_name,
+            "member_sha256": p.member_sha256,
+            "xml_locator": p.xml_locator,
+            "parser": p.parser,
+            "parser_version": p.parser_version,
+        })
+    return rows
+
+
+def derivative_coverage_rows(
+    rows_in: list[CompartmentDerivativeCoverage],
+) -> list[dict]:
+    rows = []
+    for m in sorted(rows_in, key=lambda m: m.compartment_key):
+        p = m.provenance
+        rows.append({
+            "period": m.period,
+            "compartment_key": m.compartment_key,
+            "fund_key": m.fund_key,
+            "entity_type": m.entity_type,
+            "numero_registro": m.numero_registro,
+            "numero_compartimento": m.numero_compartimento,
+            "codigo_divisa_iic": m.codigo_divisa_iic,
+            "n_operations": m.n_operations,
+            "registry_state": m.registry_state.value,
+            "source_artifact_id": p.source_artifact_id,
+            "source_sha256": p.source_sha256,
+            "member_name": p.member_name,
+            "member_sha256": p.member_sha256,
+            "xml_locator": p.xml_locator,
+            "parser": p.parser,
+            "parser_version": p.parser_version,
+        })
+    return rows
+
+
 def write_period(
     dataset_root: Path | str,
     snaps: list[PortfolioSnapshot],
@@ -645,6 +755,8 @@ def write_period(
     daily: list[ShareClassDailyObservation] | None = None,
     quarterly: list[ShareClassQuarterlyMetrics] | None = None,
     patrimony: list[CompartmentPatrimonySnapshot] | None = None,
+    derivatives: list[CompartmentDerivativeOperation] | None = None,
+    derivative_coverage: list[CompartmentDerivativeCoverage] | None = None,
 ) -> dict:
     """Write period-partitioned parquet tables; return manifest.
 
@@ -653,6 +765,7 @@ def write_period(
     ``daily_fingerprint`` covers the FONDMENS daily-observation table.
     ``quarterly_fingerprint`` covers the FONDTRIM quarterly-metrics table.
     ``patrimony_fingerprint`` covers the FONDPATRIMDISVAR table.
+    ``derivatives_fingerprint`` covers FONDDERI ops + coverage.
     """
     root = Path(dataset_root)
 
@@ -725,6 +838,25 @@ def write_period(
             "patrimony_records": len(vrow),
             "fondpatrimdisvar_present": bool(vrow),
             "patrimony_fingerprint": canonical_fingerprint(vrow),
+        })
+
+    if derivatives is not None or derivative_coverage is not None:
+        drow = derivative_rows(derivatives or [])
+        crow = derivative_coverage_rows(derivative_coverage or [])
+        if drow:
+            _write_table(
+                drow, DERIVATIVES_SCHEMA,
+                root / "derivatives" / f"period={period}" / "part-0.parquet")
+        if crow:
+            _write_table(
+                crow, DERIVATIVE_COVERAGE_SCHEMA,
+                root / "derivative_coverage" / f"period={period}"
+                / "part-0.parquet")
+        manifest.update({
+            "derivative_operations": len(drow),
+            "derivative_coverage_records": len(crow),
+            "fondderi_present": bool(crow),
+            "derivatives_fingerprint": canonical_fingerprint(drow, crow),
         })
 
     (root / "manifests").mkdir(parents=True, exist_ok=True)

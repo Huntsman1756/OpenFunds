@@ -11,6 +11,7 @@ from pathlib import Path
 
 from cnmv_iic.acquisition.client import CnmvClient
 from cnmv_iic.adapters.fondcart import parse_fondcart, reconcile
+from cnmv_iic.adapters.fondderi import parse_fondderi
 from cnmv_iic.adapters.fondmens import parse_fondmens
 from cnmv_iic.adapters.fondpatrimdisvar import parse_fondpatrimdisvar
 from cnmv_iic.adapters.fondregistro import parse_fondregistro
@@ -37,6 +38,7 @@ class UpdateResult:
     daily_fingerprint: str | None
     quarterly_fingerprint: str | None
     patrimony_fingerprint: str | None
+    derivatives_fingerprint: str | None
     positions: int
     quality_rows: int
     funds: int
@@ -44,10 +46,13 @@ class UpdateResult:
     daily_observations: int
     quarterly_metrics: int
     patrimony_records: int
+    derivative_operations: int
+    derivative_coverage_records: int
     fondcart_present: bool
     fondmens_present: bool
     fondtrim_present: bool
     fondpatrimdisvar_present: bool
+    fondderi_present: bool
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
@@ -111,9 +116,10 @@ def update_period(
     needs_daily = manifest.get("daily_fingerprint") is None
     needs_quarterly = manifest.get("quarterly_fingerprint") is None
     needs_patrimony = manifest.get("patrimony_fingerprint") is None
+    needs_derivatives = manifest.get("derivatives_fingerprint") is None
     if not is_new and not (
         needs_positions or needs_registry or needs_daily
-        or needs_quarterly or needs_patrimony
+        or needs_quarterly or needs_patrimony or needs_derivatives
     ):
         return UpdateResult(
             period=period, artifact=artifact, artifact_new=False,
@@ -123,6 +129,8 @@ def update_period(
             daily_fingerprint=manifest.get("daily_fingerprint"),
             quarterly_fingerprint=manifest.get("quarterly_fingerprint"),
             patrimony_fingerprint=manifest.get("patrimony_fingerprint"),
+            derivatives_fingerprint=manifest.get(
+                "derivatives_fingerprint"),
             positions=manifest["positions"],
             quality_rows=manifest["quality_rows"],
             funds=manifest.get("funds", 0),
@@ -130,18 +138,23 @@ def update_period(
             daily_observations=manifest.get("daily_observations", 0),
             quarterly_metrics=manifest.get("quarterly_metrics", 0),
             patrimony_records=manifest.get("patrimony_records", 0),
+            derivative_operations=manifest.get(
+                "derivative_operations", 0),
+            derivative_coverage_records=manifest.get(
+                "derivative_coverage_records", 0),
             fondcart_present=manifest.get("fondcart_present", True),
             fondmens_present=manifest.get("fondmens_present", False),
             fondtrim_present=manifest.get("fondtrim_present", False),
             fondpatrimdisvar_present=manifest.get(
                 "fondpatrimdisvar_present", False),
+            fondderi_present=manifest.get("fondderi_present", False),
         )
 
     zf = zipfile.ZipFile(store.raw_path(artifact))
 
     # XSD fingerprint gate — fail closed on unknown schema generations.
     for fam in ("FONDCART", "FONDPATRIMDISVAR", "FONDREGISTRO", "FONDMENS",
-                "FONDTRIM"):
+                "FONDTRIM", "FONDDERI"):
         sha = artifact.xsd_sha256.get(fam)
         if sha is not None:
             check_xsd(fam, sha)
@@ -214,6 +227,19 @@ def update_period(
             registry_compartment_keys=registry_compartment_keys,
         )
 
+    derivatives = None
+    derivative_coverage = None
+    deri = _member_xml(zf, "FONDDERI")
+    if deri is not None:
+        deri_name, deri_xml = deri
+        derivatives, derivative_coverage = parse_fondderi(
+            deri_xml,
+            artifact=artifact,
+            member_name=deri_name,
+            member_sha256=_member_sha(artifact, deri_name),
+            registry_compartment_keys=registry_compartment_keys,
+        )
+
     snaps = []
     cart = _member_xml(zf, "FONDCART")
     if cart is not None:
@@ -238,6 +264,8 @@ def update_period(
         dataset_root, snaps, period=period,
         artifact_id=artifact.source_id, records=records, daily=daily,
         quarterly=quarterly, patrimony=patrimony,
+        derivatives=derivatives,
+        derivative_coverage=derivative_coverage,
     )
     return UpdateResult(
         period=period, artifact=artifact, artifact_new=is_new,
@@ -247,6 +275,7 @@ def update_period(
         daily_fingerprint=manifest.get("daily_fingerprint"),
         quarterly_fingerprint=manifest.get("quarterly_fingerprint"),
         patrimony_fingerprint=manifest.get("patrimony_fingerprint"),
+        derivatives_fingerprint=manifest.get("derivatives_fingerprint"),
         positions=manifest["positions"],
         quality_rows=manifest["quality_rows"],
         funds=manifest.get("funds", 0),
@@ -254,9 +283,13 @@ def update_period(
         daily_observations=manifest.get("daily_observations", 0),
         quarterly_metrics=manifest.get("quarterly_metrics", 0),
         patrimony_records=manifest.get("patrimony_records", 0),
+        derivative_operations=manifest.get("derivative_operations", 0),
+        derivative_coverage_records=manifest.get(
+            "derivative_coverage_records", 0),
         fondcart_present=manifest["fondcart_present"],
         fondmens_present=manifest.get("fondmens_present", False),
         fondtrim_present=manifest.get("fondtrim_present", False),
         fondpatrimdisvar_present=manifest.get(
             "fondpatrimdisvar_present", False),
+        fondderi_present=manifest.get("fondderi_present", False),
     )
