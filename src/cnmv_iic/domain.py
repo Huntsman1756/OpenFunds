@@ -323,3 +323,99 @@ class ShareClassDailyObservation:
     @property
     def fund_key(self) -> str:
         return fund_key(self.entity_type, self.numero_registro)
+
+
+# ---------------------------------------------------------------------------
+# G4 — quarterly share-class metrics (FONDTRIM)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ShareClassQuarterlyMetrics:
+    """One (share_class, period) row from FONDTRIM (docs/g4/contract.md).
+
+    Measured grain is uniformly class-level: every metric element lives
+    under ``Clase`` (``NumeroClase=0`` = fund-level row, same convention
+    as FONDMENS). Compartment-level (``VocacionInversora``, ``ClaseFondo``)
+    and entity-level (``CodigoDivisaIIC``) attributes are denormalized
+    onto the record, their true source level documented here.
+
+    Units (official semantics): ``patrimonio``/``valor_liquidativo``/
+    ``numero_participaciones``/``beneficio_dividendo_bruto`` are monetary
+    in the CLASS denomination currency (``codigo_divisa`` — NOT always
+    EUR). All ``comision_*``, ``official_return_*``, ``ratio_total_gastos_*``
+    and ``volatilidad_*`` are percentages (fees: effectively accrued over
+    the period; returns: official CNMV non-annualized; ratio: % of
+    average daily patrimonio — NOT labelled "TER"; volatility: %).
+    ``None`` everywhere means the source element was absent (missing) —
+    never an inferred value. ``0`` is a genuine observed value, not a
+    sentinel (contrast with FONDMENS).
+    """
+
+    entity_type: str
+    numero_registro: str
+    numero_compartimento: str
+    numero_clase: str
+    isin_raw: str | None
+    isin_state: IsinState
+    # class metadata (verbatim enums)
+    codigo_divisa: str | None                # unit of the monetary fields
+    periodicidad_calculo_vl: str | None      # Diaria|Semanal|Quincenal|Otros
+    base_calculo_comision_gestion: str | None  # Patrimonio|Resultados|Mixta
+    sistema_imputacion_comisiones: str | None
+    # stock metrics — monetary, class currency
+    patrimonio: Decimal | None
+    valor_liquidativo: Decimal | None
+    numero_participaciones: Decimal | None
+    numero_participes: int | None
+    beneficio_dividendo_bruto: Decimal | None
+    # fees — % effectively accrued/borne during the period (may be negative)
+    comision_gestion: Decimal | None
+    comision_depositario: Decimal | None
+    comision_suscripcion_minima: Decimal | None
+    comision_suscripcion_maxima: Decimal | None
+    comision_reembolso_minima: Decimal | None
+    comision_reembolso_maxima: Decimal | None
+    comision_descuento_favor_fondo_minima: Decimal | None
+    comision_descuento_favor_fondo_maxima: Decimal | None
+    # official CNMV returns — non-annualized %, quarters T / T-1 / T-2 / T-3
+    official_return_t: Decimal | None
+    official_return_t_1: Decimal | None
+    official_return_t_2: Decimal | None
+    official_return_t_3: Decimal | None
+    # operating-expense ratio — % of avg daily patrimonio
+    ratio_total_gastos_t: Decimal | None
+    ratio_total_gastos_t_1: Decimal | None
+    ratio_total_gastos_t_2: Decimal | None
+    ratio_total_gastos_t_3: Decimal | None
+    # historical NAV volatility — %
+    volatilidad_vl_t: Decimal | None
+    volatilidad_vl_t_1: Decimal | None
+    volatilidad_vl_t_2: Decimal | None
+    volatilidad_vl_t_3: Decimal | None
+    # compartment-level attributes (verbatim, denormalized)
+    vocacion_inversora: str | None
+    clase_fondo: str | None
+    # entity-level attribute
+    codigo_divisa_iic: str | None
+    registry_state: RegistryJoinState
+    period: str                   # observed_period (YYYY-MM)
+    provenance: Provenance
+
+    @property
+    def share_class_key(self) -> str:
+        return share_class_key(
+            self.entity_type, self.numero_registro,
+            self.numero_compartimento, self.numero_clase,
+        )
+
+    @property
+    def compartment_key(self) -> str:
+        return compartment_key(
+            self.entity_type, self.numero_registro,
+            self.numero_compartimento,
+        )
+
+    @property
+    def fund_key(self) -> str:
+        return fund_key(self.entity_type, self.numero_registro)

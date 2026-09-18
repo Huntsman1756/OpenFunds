@@ -13,6 +13,7 @@ from cnmv_iic.acquisition.client import CnmvClient
 from cnmv_iic.adapters.fondcart import parse_fondcart, reconcile
 from cnmv_iic.adapters.fondmens import parse_fondmens
 from cnmv_iic.adapters.fondregistro import parse_fondregistro
+from cnmv_iic.adapters.fondtrim import parse_fondtrim
 from cnmv_iic.artifacts.store import ArtifactStore, SourceArtifact, member_family
 from cnmv_iic.domain import share_class_key
 from cnmv_iic.errors import NotFoundError, ParseError
@@ -33,13 +34,16 @@ class UpdateResult:
     dataset_fingerprint: str | None
     registry_fingerprint: str | None
     daily_fingerprint: str | None
+    quarterly_fingerprint: str | None
     positions: int
     quality_rows: int
     funds: int
     share_classes: int
     daily_observations: int
+    quarterly_metrics: int
     fondcart_present: bool
     fondmens_present: bool
+    fondtrim_present: bool
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
@@ -101,26 +105,33 @@ def update_period(
     needs_positions = manifest.get("dataset_fingerprint") is None
     needs_registry = manifest.get("registry_fingerprint") is None
     needs_daily = manifest.get("daily_fingerprint") is None
-    if not is_new and not (needs_positions or needs_registry or needs_daily):
+    needs_quarterly = manifest.get("quarterly_fingerprint") is None
+    if not is_new and not (
+        needs_positions or needs_registry or needs_daily or needs_quarterly
+    ):
         return UpdateResult(
             period=period, artifact=artifact, artifact_new=False,
             exported=False,
             dataset_fingerprint=manifest["dataset_fingerprint"],
             registry_fingerprint=manifest.get("registry_fingerprint"),
             daily_fingerprint=manifest.get("daily_fingerprint"),
+            quarterly_fingerprint=manifest.get("quarterly_fingerprint"),
             positions=manifest["positions"],
             quality_rows=manifest["quality_rows"],
             funds=manifest.get("funds", 0),
             share_classes=manifest.get("share_classes", 0),
             daily_observations=manifest.get("daily_observations", 0),
+            quarterly_metrics=manifest.get("quarterly_metrics", 0),
             fondcart_present=manifest.get("fondcart_present", True),
             fondmens_present=manifest.get("fondmens_present", False),
+            fondtrim_present=manifest.get("fondtrim_present", False),
         )
 
     zf = zipfile.ZipFile(store.raw_path(artifact))
 
     # XSD fingerprint gate — fail closed on unknown schema generations.
-    for fam in ("FONDCART", "FONDPATRIMDISVAR", "FONDREGISTRO", "FONDMENS"):
+    for fam in ("FONDCART", "FONDPATRIMDISVAR", "FONDREGISTRO", "FONDMENS",
+                "FONDTRIM"):
         sha = artifact.xsd_sha256.get(fam)
         if sha is not None:
             check_xsd(fam, sha)
@@ -160,6 +171,18 @@ def update_period(
             registry_keys=registry_keys,
         )
 
+    quarterly = None
+    trim = _member_xml(zf, "FONDTRIM")
+    if trim is not None:
+        trim_name, trim_xml = trim
+        quarterly = parse_fondtrim(
+            trim_xml,
+            artifact=artifact,
+            member_name=trim_name,
+            member_sha256=_member_sha(artifact, trim_name),
+            registry_keys=registry_keys,
+        )
+
     snaps = []
     cart = _member_xml(zf, "FONDCART")
     if cart is not None:
@@ -173,15 +196,17 @@ def update_period(
         )
         reconcile(snaps, pdv[1] if pdv else None)
 
-    if cart is None and records is None and daily is None:
+    if cart is None and records is None and daily is None \
+            and quarterly is None:
         raise ParseError(
             f"artifact {artifact.source_id} has no parseable members "
-            f"(FONDCART/FONDREGISTRO/FONDMENS all absent)"
+            f"(FONDCART/FONDREGISTRO/FONDMENS/FONDTRIM all absent)"
         )
 
     manifest = write_period(
         dataset_root, snaps, period=period,
         artifact_id=artifact.source_id, records=records, daily=daily,
+        quarterly=quarterly,
     )
     return UpdateResult(
         period=period, artifact=artifact, artifact_new=is_new,
@@ -189,11 +214,14 @@ def update_period(
         dataset_fingerprint=manifest["dataset_fingerprint"],
         registry_fingerprint=manifest.get("registry_fingerprint"),
         daily_fingerprint=manifest.get("daily_fingerprint"),
+        quarterly_fingerprint=manifest.get("quarterly_fingerprint"),
         positions=manifest["positions"],
         quality_rows=manifest["quality_rows"],
         funds=manifest.get("funds", 0),
         share_classes=manifest.get("share_classes", 0),
         daily_observations=manifest.get("daily_observations", 0),
+        quarterly_metrics=manifest.get("quarterly_metrics", 0),
         fondcart_present=manifest["fondcart_present"],
         fondmens_present=manifest.get("fondmens_present", False),
+        fondtrim_present=manifest.get("fondtrim_present", False),
     )

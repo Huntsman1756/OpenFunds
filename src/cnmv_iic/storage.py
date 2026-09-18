@@ -26,6 +26,7 @@ from cnmv_iic.domain import (
     FundRecord,
     PortfolioSnapshot,
     ShareClassDailyObservation,
+    ShareClassQuarterlyMetrics,
 )
 
 Q18 = Decimal(1).scaleb(-18)
@@ -134,6 +135,66 @@ DAILY_SCHEMA = pa.schema([
     ("investors", pa.int64()),
     ("investors_raw", pa.string()),
     ("investors_state", pa.string()),
+    ("registry_state", pa.string()),
+    ("source_artifact_id", pa.string()),
+    ("source_sha256", pa.string()),
+    ("member_name", pa.string()),
+    ("member_sha256", pa.string()),
+    ("xml_locator", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+QUARTERLY_SCHEMA = pa.schema([
+    ("period", pa.string()),                 # observed_period YYYY-MM
+    ("share_class_key", pa.string()),
+    ("compartment_key", pa.string()),
+    ("fund_key", pa.string()),
+    ("entity_type", pa.string()),
+    ("numero_registro", pa.string()),
+    ("numero_compartimento", pa.string()),
+    ("numero_clase", pa.string()),
+    ("isin_raw", pa.string()),
+    ("isin_state", pa.string()),
+    # class metadata (verbatim enums)
+    ("codigo_divisa", pa.string()),          # unit of monetary fields
+    ("periodicidad_calculo_vl", pa.string()),
+    ("base_calculo_comision_gestion", pa.string()),
+    ("sistema_imputacion_comisiones", pa.string()),
+    # stock metrics — monetary, class currency (measured scales)
+    ("patrimonio", pa.decimal128(38, 2)),
+    ("valor_liquidativo", pa.decimal128(38, 4)),
+    ("numero_participaciones", pa.decimal128(38, 2)),
+    ("numero_participes", pa.int64()),
+    ("beneficio_dividendo_bruto", pa.decimal128(38, 4)),
+    # fees — % accrued in period (signed; negatives observed)
+    ("comision_gestion", pa.decimal128(38, 2)),
+    ("comision_depositario", pa.decimal128(38, 2)),
+    ("comision_suscripcion_minima", pa.decimal128(38, 2)),
+    ("comision_suscripcion_maxima", pa.decimal128(38, 2)),
+    ("comision_reembolso_minima", pa.decimal128(38, 2)),
+    ("comision_reembolso_maxima", pa.decimal128(38, 2)),
+    ("comision_descuento_favor_fondo_minima", pa.decimal128(38, 2)),
+    ("comision_descuento_favor_fondo_maxima", pa.decimal128(38, 2)),
+    # official CNMV returns — non-annualized %, T/T-1/T-2/T-3
+    ("official_return_t", pa.decimal128(38, 2)),
+    ("official_return_t_1", pa.decimal128(38, 2)),
+    ("official_return_t_2", pa.decimal128(38, 2)),
+    ("official_return_t_3", pa.decimal128(38, 2)),
+    # operating-expense ratio — % of avg daily patrimonio (NOT "TER")
+    ("ratio_total_gastos_t", pa.decimal128(38, 2)),
+    ("ratio_total_gastos_t_1", pa.decimal128(38, 2)),
+    ("ratio_total_gastos_t_2", pa.decimal128(38, 2)),
+    ("ratio_total_gastos_t_3", pa.decimal128(38, 2)),
+    # historical NAV volatility — %
+    ("volatilidad_vl_t", pa.decimal128(38, 2)),
+    ("volatilidad_vl_t_1", pa.decimal128(38, 2)),
+    ("volatilidad_vl_t_2", pa.decimal128(38, 2)),
+    ("volatilidad_vl_t_3", pa.decimal128(38, 2)),
+    # compartment/entity-level attributes (denormalized, verbatim)
+    ("vocacion_inversora", pa.string()),
+    ("clase_fondo", pa.string()),
+    ("codigo_divisa_iic", pa.string()),
     ("registry_state", pa.string()),
     ("source_artifact_id", pa.string()),
     ("source_sha256", pa.string()),
@@ -369,6 +430,71 @@ def daily_rows(obs: list[ShareClassDailyObservation]) -> list[dict]:
     return rows
 
 
+def quarterly_rows(rows_in: list[ShareClassQuarterlyMetrics]) -> list[dict]:
+    rows = []
+    for m in rows_in:
+        p = m.provenance
+        rows.append({
+            "period": m.period,
+            "share_class_key": m.share_class_key,
+            "compartment_key": m.compartment_key,
+            "fund_key": m.fund_key,
+            "entity_type": m.entity_type,
+            "numero_registro": m.numero_registro,
+            "numero_compartimento": m.numero_compartimento,
+            "numero_clase": m.numero_clase,
+            "isin_raw": m.isin_raw,
+            "isin_state": m.isin_state.value,
+            "codigo_divisa": m.codigo_divisa,
+            "periodicidad_calculo_vl": m.periodicidad_calculo_vl,
+            "base_calculo_comision_gestion": m.base_calculo_comision_gestion,
+            "sistema_imputacion_comisiones": m.sistema_imputacion_comisiones,
+            "patrimonio": m.patrimonio,
+            "valor_liquidativo": m.valor_liquidativo,
+            "numero_participaciones": m.numero_participaciones,
+            "numero_participes": m.numero_participes,
+            "beneficio_dividendo_bruto": m.beneficio_dividendo_bruto,
+            "comision_gestion": m.comision_gestion,
+            "comision_depositario": m.comision_depositario,
+            "comision_suscripcion_minima": m.comision_suscripcion_minima,
+            "comision_suscripcion_maxima": m.comision_suscripcion_maxima,
+            "comision_reembolso_minima": m.comision_reembolso_minima,
+            "comision_reembolso_maxima": m.comision_reembolso_maxima,
+            "comision_descuento_favor_fondo_minima":
+                m.comision_descuento_favor_fondo_minima,
+            "comision_descuento_favor_fondo_maxima":
+                m.comision_descuento_favor_fondo_maxima,
+            "official_return_t": m.official_return_t,
+            "official_return_t_1": m.official_return_t_1,
+            "official_return_t_2": m.official_return_t_2,
+            "official_return_t_3": m.official_return_t_3,
+            "ratio_total_gastos_t": m.ratio_total_gastos_t,
+            "ratio_total_gastos_t_1": m.ratio_total_gastos_t_1,
+            "ratio_total_gastos_t_2": m.ratio_total_gastos_t_2,
+            "ratio_total_gastos_t_3": m.ratio_total_gastos_t_3,
+            "volatilidad_vl_t": m.volatilidad_vl_t,
+            "volatilidad_vl_t_1": m.volatilidad_vl_t_1,
+            "volatilidad_vl_t_2": m.volatilidad_vl_t_2,
+            "volatilidad_vl_t_3": m.volatilidad_vl_t_3,
+            "vocacion_inversora": m.vocacion_inversora,
+            "clase_fondo": m.clase_fondo,
+            "codigo_divisa_iic": m.codigo_divisa_iic,
+            "registry_state": m.registry_state.value,
+            "source_artifact_id": p.source_artifact_id,
+            "source_sha256": p.source_sha256,
+            "member_name": p.member_name,
+            "member_sha256": p.member_sha256,
+            "xml_locator": p.xml_locator,
+            "parser": p.parser,
+            "parser_version": p.parser_version,
+        })
+    rows.sort(key=lambda r: (
+        str(r["entity_type"]), str(r["numero_registro"]).zfill(12),
+        str(r["numero_compartimento"]).zfill(6),
+        str(r["numero_clase"]).zfill(6)))
+    return rows
+
+
 def canonical_fingerprint(*row_sets: list[dict]) -> str:
     """SHA-256 over canonical row serialization — parquet-metadata independent."""
     h = sha256()
@@ -396,12 +522,14 @@ def write_period(
     artifact_id: str,
     records: list[FundRecord] | None = None,
     daily: list[ShareClassDailyObservation] | None = None,
+    quarterly: list[ShareClassQuarterlyMetrics] | None = None,
 ) -> dict:
     """Write period-partitioned parquet tables; return manifest.
 
     ``dataset_fingerprint`` covers positions+quality only (G1 semantics —
     unchanged). ``registry_fingerprint`` covers the identity tables.
     ``daily_fingerprint`` covers the FONDMENS daily-observation table.
+    ``quarterly_fingerprint`` covers the FONDTRIM quarterly-metrics table.
     """
     root = Path(dataset_root)
 
@@ -450,6 +578,18 @@ def write_period(
             "daily_observations": len(drow),
             "fondmens_present": bool(drow),
             "daily_fingerprint": canonical_fingerprint(drow),
+        })
+
+    if quarterly is not None:
+        trow = quarterly_rows(quarterly)
+        if trow:
+            _write_table(
+                trow, QUARTERLY_SCHEMA,
+                root / "quarterly" / f"period={period}" / "part-0.parquet")
+        manifest.update({
+            "quarterly_metrics": len(trow),
+            "fondtrim_present": bool(trow),
+            "quarterly_fingerprint": canonical_fingerprint(trow),
         })
 
     (root / "manifests").mkdir(parents=True, exist_ok=True)

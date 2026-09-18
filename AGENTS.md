@@ -17,8 +17,9 @@ identity **PASS** (`docs/g2/results.md`, tag `g2-identity-pass`, plus
 post-adjudication tightening `4a208a6`: stale-fallback metadata + `--exact`
 + `invalid_identifier`). G3 FONDMENS **implemented and verified live**
 (`docs/g3/contract.md` + `docs/g3/results.md`): daily NAV/AUM/investors per
-share class with explicit observation states. 73 unit tests, ruff and mypy
-clean.
+share class with explicit observation states. G4 FONDTRIM **implemented**
+(`docs/g4/contract.md`): quarterly class-level metrics — fees, official
+returns, expense ratio, volatility. 90 unit tests, ruff and mypy clean.
 Name: `cnmv-iic` (import `cnmv_iic`) — **not** "OpenFunds ES"
 (openfunds.org collision, ADR-006).
 
@@ -47,10 +48,27 @@ G3 semantics worth knowing:
 - `daily_fingerprint` is separate; G1/G2 fingerprints unchanged.
 - No derived returns — official returns are FONDTRIM (G4).
 
-Next gates (post-G3, not started): FONDTRIM + FONDPATRIMDISVAR
-(fees/returns — FONDTRIM currency may differ from FONDMENS EUR), FONDDERI
-verbatim records, portfolio-diff only after cadence semantics formalized
-(Q/Q <=2022, H/H >=2023).
+G4 semantics worth knowing (FONDTRIM, measured contract docs/g4/):
+- Grain: `(share_class_key, period)` — class-level (clase 0 = fund-level).
+  Compartment (`VocacionInversora`/`ClaseFondo`) and entity
+  (`CodigoDivisaIIC`) attrs denormalize onto the class record.
+- `0` is a REAL observed value here (fees can be 0.00) — NO sentinel
+  semantics (inverse of FONDMENS). Absent element = missing = NULL.
+- Fees may be negative (rebates observed); official returns may be
+  negative. All kept verbatim signed.
+- Monetary fields are in the CLASS currency (`CodigoDivisa`) — NOT
+  always EUR (USD classes exist). Never assume EUR.
+- `official_return_*` = CNMV's non-annualized Rentabilidad — never a
+  generic `return` column; `RatioTotalGastos` is NOT labelled TER.
+- Rolling blocks T/T-1/T-2/T-3: absent sub-element = insufficient
+  history (missing, not zero). Empty containers observed.
+- `quarterly_fingerprint` separate; G1/G2/G3 fingerprints unchanged.
+
+Next gates (G4-B..E): FONDPATRIMDISVAR own model (compartment-grained,
+mixed monetary stock + signed %-over-PMD flow fields), joins/
+reconciliation, CLI (metrics/fees/official-returns/allocation),
+historical validation. Still out: FONDDERI, issuer resolution,
+look-through, calculated returns, rankings.
 
 ## Verified environment facts
 - Windows, Python 3.11+ (uv-managed venv shadows system python — install

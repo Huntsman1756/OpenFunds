@@ -15,6 +15,13 @@ Counts: FONDTRIM 2,476 classes / 2,299 entidades (2012-03) vs 3,069 /
 1,668 (2025-12) — near-complete coverage of the same-period
 FONDREGISTRO/FONDMENS class universe. PDV: 2,299 / 1,668 compartments.
 
+**Schema stability (measured, not assumed):** the complete element-path
+set is identical in every artifact that publishes the families — 45
+FONDTRIM paths and 43 FONDPATRIMDISVAR paths, zero drift across 8
+periods spanning 2012-03 → 2025-12 (201203, 201403, 201603, 201803,
+202003, 202203, 202306, 202512). Fail-closed element catalogs below
+are therefore definitive for this era range.
+
 ## 2. FONDTRIM — per-class observed fields
 
 **Identity/metadata**

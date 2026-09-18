@@ -150,11 +150,62 @@ FONDMENS_ELEMENTS = frozenset({
     *{f"{_CLASE}/ParticipesDiario/Participes_Dia{d}" for d in range(1, 32)},
 })
 
+_T_CLASE = "FondTrim/Entidad/Compartimento/Clase"
+
+FONDTRIM_ELEMENTS = frozenset({
+    "FondTrim",
+    "FondTrim/FechaDatos",
+    "FondTrim/Entidad",
+    "FondTrim/Entidad/Tipo",
+    "FondTrim/Entidad/NumeroRegistro",
+    "FondTrim/Entidad/CodigoDivisaIIC",
+    "FondTrim/Entidad/Compartimento",
+    "FondTrim/Entidad/Compartimento/NumeroCompartimento",
+    "FondTrim/Entidad/Compartimento/ClaseFondo",
+    "FondTrim/Entidad/Compartimento/VocacionInversora",
+    _T_CLASE,
+    f"{_T_CLASE}/NumeroClase",
+    f"{_T_CLASE}/ISIN",
+    f"{_T_CLASE}/CodigoDivisa",
+    f"{_T_CLASE}/Patrimonio",
+    f"{_T_CLASE}/ValorLiquidativo",
+    f"{_T_CLASE}/NumeroParticipaciones",
+    f"{_T_CLASE}/NumeroParticipes",
+    f"{_T_CLASE}/ComisionGestion",
+    f"{_T_CLASE}/ComisionDepositario",
+    f"{_T_CLASE}/ComisionSuscripcionMinima",
+    f"{_T_CLASE}/ComisionSuscripcionMaxima",
+    f"{_T_CLASE}/ComisionReembolsoMinima",
+    f"{_T_CLASE}/ComisionReembolsoMaxima",
+    f"{_T_CLASE}/ComisionDescuentoFavorFondoMinima",
+    f"{_T_CLASE}/ComisionDescuentoFavorFondoMaxima",
+    f"{_T_CLASE}/BaseCalculo_ComisionGestion",
+    f"{_T_CLASE}/SistemaImputacionComisiones",
+    f"{_T_CLASE}/PeriodicidadCalculoVL",
+    f"{_T_CLASE}/Beneficio_Dividendo_Bruto",
+    f"{_T_CLASE}/Rentabilidad",
+    f"{_T_CLASE}/Rentabilidad/Rentabilidad_TrimestreActual",
+    f"{_T_CLASE}/Rentabilidad/Rentabilidad_T_1",
+    f"{_T_CLASE}/Rentabilidad/Rentabilidad_T_2",
+    f"{_T_CLASE}/Rentabilidad/Rentabilidad_T_3",
+    f"{_T_CLASE}/RatioTotalGastos",
+    f"{_T_CLASE}/RatioTotalGastos/RatioTotalGastos_TrimestreActual",
+    f"{_T_CLASE}/RatioTotalGastos/RatioTotalGastos_T_1",
+    f"{_T_CLASE}/RatioTotalGastos/RatioTotalGastos_T_2",
+    f"{_T_CLASE}/RatioTotalGastos/RatioTotalGastos_T_3",
+    f"{_T_CLASE}/Volatilidad_VL",
+    f"{_T_CLASE}/Volatilidad_VL/Volatilidad_TrimestreActual",
+    f"{_T_CLASE}/Volatilidad_VL/Volatilidad_T_1",
+    f"{_T_CLASE}/Volatilidad_VL/Volatilidad_T_2",
+    f"{_T_CLASE}/Volatilidad_VL/Volatilidad_T_3",
+})
+
 KNOWN_ELEMENTS: dict[str, frozenset[str]] = {
     "FONDCART": FONDCART_ELEMENTS,
     "FONDPATRIMDISVAR": FONDPATRIMDISVAR_ELEMENTS,
     "FONDREGISTRO": FONDREGISTRO_ELEMENTS,
     "FONDMENS": FONDMENS_ELEMENTS,
+    "FONDTRIM": FONDTRIM_ELEMENTS,
 }
 
 
@@ -197,6 +248,46 @@ DEVIATIONS: tuple[Deviation, ...] = (
         kind="MISSING_REQUIRED_ELEMENT",
         periods_observed=("2025-12",),
         note="absent on ~288 entidad records",
+    ),
+    Deviation(
+        family="FONDTRIM",
+        element_path="Entidad/CodigoDivisaIIC",
+        kind="MISSING_REQUIRED_ELEMENT",
+        periods_observed=("2025-12",),
+        note="absent on 287/1668 entidad records (same element as "
+             "FONDPATRIMDISVAR deviation)",
+    ),
+    Deviation(
+        family="FONDTRIM",
+        element_path="Entidad/Compartimento/Clase/SistemaImputacionComisiones",
+        kind="MISSING_REQUIRED_ELEMENT",
+        periods_observed=("2012-03", "2025-12"),
+        note="absent on ~50% of class records in both eras",
+    ),
+    Deviation(
+        family="FONDTRIM",
+        element_path="Entidad/Compartimento/Clase/Beneficio_Dividendo_Bruto",
+        kind="MISSING_REQUIRED_ELEMENT",
+        periods_observed=("2012-03", "2025-12"),
+        note="absent on ~6% of class records",
+    ),
+    Deviation(
+        family="FONDTRIM",
+        element_path="Entidad/Compartimento/Clase/Rentabilidad",
+        kind="EMPTY_CONTAINER",
+        periods_observed=("2025-12",),
+        note="block container present but empty (243 instances across the "
+             "three rolling blocks) — class without metric history; also "
+             "T_1/T_2/T_3 sub-elements individually absent (insufficient "
+             "history), preserved as missing not zero",
+    ),
+    Deviation(
+        family="FONDTRIM",
+        element_path="Entidad/Compartimento/Clase/CodigoDivisa",
+        kind="MISSING_REQUIRED_ELEMENT",
+        periods_observed=("2012-03", "2025-12"),
+        note="1 class per era lacks CodigoDivisa and all metric elements — "
+             "identity-only row (like FONDMENS missing blocks)",
     ),
 )
 
