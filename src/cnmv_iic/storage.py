@@ -27,7 +27,10 @@ from cnmv_iic.domain import (
     CompartmentDerivativeOperation,
     CompartmentPatrimonySnapshot,
     FundRecord,
+    LegalEntityObservation,
     PortfolioSnapshot,
+    RelationshipExceptionObservation,
+    RelationshipObservation,
     ResolutionCandidate,
     ResolutionObservation,
     ResolutionState,
@@ -987,6 +990,186 @@ def write_provider_resolution(
     }
     (root / "manifests").mkdir(parents=True, exist_ok=True)
     mname = f"resolution_{provider}_{snapshot_date}.json"
+    with open(root / "manifests" / mname, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=1, sort_keys=True)
+    return manifest
+
+
+LEGAL_ENTITY_SCHEMA = pa.schema([
+    ("entity_id", pa.string()),            # gleif/lei-cdf-3.1/<snap>/<lei>
+    ("lei", pa.string()),
+    ("provider", pa.string()),
+    ("provider_dataset", pa.string()),
+    ("provider_snapshot_date", pa.string()),
+    ("provider_artifact_id", pa.string()),
+    ("evidence_role", pa.string()),        # resolved|closure_end_node
+    ("legal_name", pa.string()),
+    ("other_names_json", pa.string()),
+    ("legal_address_json", pa.string()),
+    ("headquarters_address_json", pa.string()),
+    ("legal_jurisdiction", pa.string()),
+    ("entity_category", pa.string()),
+    ("entity_status", pa.string()),
+    ("legal_form", pa.string()),
+    ("registration_status", pa.string()),
+    ("initial_registration_date", pa.string()),
+    ("last_update_date", pa.string()),
+    ("next_renewal_date", pa.string()),
+    ("managing_lou", pa.string()),
+    ("provider_record_locator", pa.string()),
+    ("raw_json", pa.string()),
+    ("retrieved_at", pa.string()),
+    ("source_sha256", pa.string()),
+    ("member_name", pa.string()),
+    ("member_sha256", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+RELATIONSHIP_SCHEMA = pa.schema([
+    ("relationship_id", pa.string()),
+    ("start_lei", pa.string()),
+    ("end_lei", pa.string()),
+    ("relationship_type", pa.string()),    # verbatim GLEIF vocabulary
+    ("relationship_status", pa.string()),  # verbatim; may be empty
+    ("relationship_periods_json", pa.string()),
+    ("validation_sources", pa.string()),
+    ("registration_status", pa.string()),
+    ("provider", pa.string()),
+    ("provider_dataset", pa.string()),
+    ("provider_snapshot_date", pa.string()),
+    ("provider_artifact_id", pa.string()),
+    ("provider_record_locator", pa.string()),
+    ("raw_json", pa.string()),
+    ("retrieved_at", pa.string()),
+    ("source_sha256", pa.string()),
+    ("member_name", pa.string()),
+    ("member_sha256", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+RELATIONSHIP_EXCEPTION_SCHEMA = pa.schema([
+    ("exception_id", pa.string()),
+    ("lei", pa.string()),
+    ("exception_category", pa.string()),   # verbatim
+    ("exception_reason", pa.string()),     # verbatim
+    ("provider", pa.string()),
+    ("provider_dataset", pa.string()),
+    ("provider_snapshot_date", pa.string()),
+    ("provider_artifact_id", pa.string()),
+    ("provider_record_locator", pa.string()),
+    ("raw_json", pa.string()),
+    ("retrieved_at", pa.string()),
+    ("source_sha256", pa.string()),
+    ("member_name", pa.string()),
+    ("member_sha256", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+_ENTITY_FIELDS = [
+    "entity_id", "lei", "provider", "provider_dataset",
+    "provider_snapshot_date", "provider_artifact_id", "evidence_role",
+    "legal_name", "other_names_json", "legal_address_json",
+    "headquarters_address_json", "legal_jurisdiction", "entity_category",
+    "entity_status", "legal_form", "registration_status",
+    "initial_registration_date", "last_update_date", "next_renewal_date",
+    "managing_lou", "provider_record_locator", "raw_json",
+    "retrieved_at", "source_sha256", "member_name", "member_sha256",
+    "parser", "parser_version",
+]
+_RELATIONSHIP_FIELDS = [
+    "relationship_id", "start_lei", "end_lei", "relationship_type",
+    "relationship_status", "relationship_periods_json",
+    "validation_sources", "registration_status", "provider",
+    "provider_dataset", "provider_snapshot_date", "provider_artifact_id",
+    "provider_record_locator", "raw_json", "retrieved_at",
+    "source_sha256", "member_name", "member_sha256", "parser",
+    "parser_version",
+]
+_EXCEPTION_FIELDS = [
+    "exception_id", "lei", "exception_category", "exception_reason",
+    "provider", "provider_dataset", "provider_snapshot_date",
+    "provider_artifact_id", "provider_record_locator", "raw_json",
+    "retrieved_at", "source_sha256", "member_name", "member_sha256",
+    "parser", "parser_version",
+]
+
+
+def legal_entity_rows(obs: list[LegalEntityObservation]) -> list[dict]:
+    return [{f: getattr(o, f) for f in _ENTITY_FIELDS}
+            for o in sorted(obs, key=lambda o: o.entity_id)]
+
+
+def relationship_rows(obs: list[RelationshipObservation]) -> list[dict]:
+    return [{f: getattr(o, f) for f in _RELATIONSHIP_FIELDS}
+            for o in sorted(obs, key=lambda o: o.relationship_id)]
+
+
+def exception_rows(
+    obs: list[RelationshipExceptionObservation],
+) -> list[dict]:
+    return [{f: getattr(o, f) for f in _EXCEPTION_FIELDS}
+            for o in sorted(obs, key=lambda o: o.exception_id)]
+
+
+def write_gleif_golden(
+    dataset_root: Path | str,
+    *,
+    snapshot_date: str,
+    entities: list[LegalEntityObservation],
+    relationships: list[RelationshipObservation],
+    exceptions: list[RelationshipExceptionObservation],
+    artifact_ids: dict[str, str],
+    wanted_lei_count: int,
+    closure_lei_count: int,
+) -> dict:
+    """Write G7-B entity/relationship/exception evidence for one snapshot.
+
+    Partitioned by provider=gleif / snapshot=<date> — a new GLEIF
+    snapshot creates NEW partitions; identical re-ingest is a no-op.
+    """
+    root = Path(dataset_root)
+    erow = legal_entity_rows(entities)
+    rrow = relationship_rows(relationships)
+    xrow = exception_rows(exceptions)
+    part = f"provider=gleif/snapshot={snapshot_date}/part-0.parquet"
+    if erow:
+        _write_table(erow, LEGAL_ENTITY_SCHEMA,
+                     root / "legal_entities" / part)
+    if rrow:
+        _write_table(rrow, RELATIONSHIP_SCHEMA,
+                     root / "relationships" / part)
+    if xrow:
+        _write_table(xrow, RELATIONSHIP_EXCEPTION_SCHEMA,
+                     root / "relationship_exceptions" / part)
+    manifest = {
+        "provider": "gleif",
+        "provider_snapshot_date": snapshot_date,
+        "source_artifact_ids": artifact_ids,
+        "wanted_lei_count": wanted_lei_count,
+        "closure_lei_count": closure_lei_count,
+        "legal_entities": len(erow),
+        "entities_resolved_role": sum(
+            1 for o in entities if o.evidence_role == "resolved"),
+        "entities_closure_role": sum(
+            1 for o in entities
+            if o.evidence_role == "closure_end_node"),
+        "relationships": len(rrow),
+        "relationship_types": sorted(
+            {r.relationship_type for r in relationships
+             if r.relationship_type}),
+        "relationship_statuses": sorted(
+            {r.relationship_status or "NULL" for r in relationships}),
+        "relationship_exceptions": len(xrow),
+        "exception_reasons": sorted(
+            {x.exception_reason for x in exceptions
+             if x.exception_reason}),
+        "evidence_fingerprint": canonical_fingerprint(erow, rrow, xrow),
+    }
+    (root / "manifests").mkdir(parents=True, exist_ok=True)
+    mname = f"resolution_gleif_golden_{snapshot_date}.json"
     with open(root / "manifests" / mname, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1, sort_keys=True)
     return manifest

@@ -142,3 +142,67 @@ openfigi/results.json (sample 3000, seed 42, 2026-09-18)
 
 R/S CFI families (OTC swaps/referential) not downloaded — out of the
 FONDCART security universe by construction.
+
+## 8. G7-B implemented — GLEIF Golden Copy evidence (2026-09-18)
+
+Three artifacts from the SAME snapshot date, enforced fail-closed on
+member-declared dates (`snapshot_date_mismatch` aborts):
+
+```text
+lei-cdf-3.1   8,440 MB xml   sha256 076609e9ba872c07…
+rr-cdf-2.1      1.1 GB xml   sha256 (artifact 6a026cc7…)
+repex-2.1       1.9 GB xml   sha256 (artifact 3ed697e0…)
+```
+
+Extraction is filtered — cnmv-iic is not a GLEIF replica:
+
+```text
+wanted_lei = distinct candidate_lei (G7-A, all loaded snapshots)
+
+RR-CDF      → records where start_lei ∈ wanted (all types/statuses)
+closure     = end_lei of retained records − wanted   (ONE hop, bounded)
+LEI-CDF     → records for wanted ∪ closure, role resolved|closure_end_node
+Repex       → exceptions for wanted LEIs only
+```
+
+Tables (append-only, partitioned `provider=gleif/snapshot=<date>`):
+
+```text
+legal_entities           LegalEntityObservation     + evidence_role
+relationships            RelationshipObservation   type/status verbatim
+relationship_exceptions  RelationshipExceptionObs  category/reason verbatim
+```
+
+### Live result (corpus: 2 periods loaded, 4,486 wanted LEIs)
+
+```text
+relationships:            2,277   (5 types; no IS_FEEDER_TO on our LEIs)
+  IS_FUND-MANAGED_BY            750   (687 ACTIVE / 53 INACTIVE / 10 NULL)
+  IS_ULTIMATELY_CONSOLIDATED_BY 718   (494/109/115)
+  IS_DIRECTLY_CONSOLIDATED_BY   699   (469/119/111)
+  IS_SUBFUND_OF                 109   (105/2/2)
+  IS_INTERNATIONAL_BRANCH_OF      1   (1/0/0)
+exceptions:               7,899   rows (never NULLs)
+  NON_CONSOLIDATING 3,829  NO_KNOWN_PERSON 3,118  NATURAL_PERSONS 609
+  NON_PUBLIC 187  NO_LEI 156
+legal_entities:           5,121   (4,484 resolved + 637 closure)
+  2 wanted LEIs absent from LEI-CDF 2026-09-18 (verified: ISSUED per
+  API but not in the concatenated file) — honest gap, not fabricated
+evidence_fingerprint:     d4e9a02744c526a6bf4539d8eec6da716f3fc595e5a4b6a85628ffeffe642900
+```
+
+Verified end-to-end: `GVCGAESCO EMERGENTFOND, FI` (FUND)
+`--IS_FUND-MANAGED_BY/ACTIVE-->` gestora pulled as `closure_end_node`;
+`BANCO SANTANDER S.A.` has no RR rows but two `NON_CONSOLIDATING`
+exception rows — "no RR" is never "no parent", the distinction is
+data. G7-A fingerprint and all G1–G6 fingerprints byte-identical.
+
+### Gates — all 20 hold
+
+1–3 same-date/pinned/filtered ✓  4 append-only ✓  5–7 verbatim types,
+never `parent`, fund/subfund/feeder distinct ✓  8 periods preserved
+(JSON array, period_type verbatim) ✓  9–10 exceptions as rows, absence
+not asserted ✓  11–13 start/end kept, end nodes get Level-1, one-hop
+bound ✓  14–15 zero fuzzy/group inference ✓  16–17 prior fingerprints
+intact ✓  18 idempotent ✓  19 new snapshot = new partition ✓  20
+magnitudes consistent with G7-R (subset of 2 loaded periods).

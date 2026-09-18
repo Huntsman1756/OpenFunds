@@ -168,3 +168,211 @@ def ingest_gleif_isin_lei(
         universe_isins=manifest["universe_isins"],
         resolution_fingerprint=manifest["resolution_fingerprint"],
     )
+
+
+GLEIF_GOLDEN_PAGE = (
+    "https://www.gleif.org/en/lei-data/gleif-concatenated-file/"
+    "download-the-concatenated-file"
+)
+
+
+@dataclass(frozen=True)
+class GoldenIngestResult:
+    snapshot_date: str
+    artifact_ids: dict[str, str]      # dataset -> source_id
+    artifacts_new: int                # how many of the 3 were new
+    exported: bool
+    wanted_lei_count: int
+    closure_lei_count: int
+    legal_entities: int
+    entities_resolved_role: int
+    entities_closure_role: int
+    relationships: int
+    relationship_types: tuple[str, ...]
+    relationship_exceptions: int
+    evidence_fingerprint: str | None
+
+
+def _wanted_leis(dataset_root: Path) -> set[str]:
+    """Distinct candidate LEIs from G7-A resolution evidence.
+
+    Only LEIs reachable from loaded ``resolution_candidates`` enter the
+    GLEIF extraction — cnmv-iic is not a GLEIF replica.
+    """
+    cdir = (dataset_root / "resolution_candidates"
+            / f"provider={gleif_isin_lei.PROVIDER}")
+    glob = str(cdir / "snapshot=*" / "*.parquet")
+    if not cdir.exists():
+        raise NotFoundError(
+            "no GLEIF resolution candidates — run "
+            "`cnmv-iic ingest-provider gleif-isin-lei <zip>` first")
+    con = duckdb.connect(database=":memory:")
+    try:
+        rows = con.execute(
+            "SELECT DISTINCT candidate_lei FROM "
+            "read_parquet(?, hive_partitioning=true)",
+            [glob]).fetchall()
+    finally:
+        con.close()
+    return {r[0] for r in rows}
+
+
+def ingest_gleif_golden(
+    store: ArtifactStore,
+    dataset_root: Path | str,
+    lei_zip: Path | str,
+    rr_zip: Path | str,
+    repex_zip: Path | str,
+    *,
+    retrieved_at: datetime | None = None,
+) -> GoldenIngestResult:
+    """Ingest the three GLEIF concatenated files for ONE snapshot date.
+
+    Gate 1: all three members must declare the same snapshot date —
+    mixed-date bundles are rejected fail-closed. Extraction is filtered:
+    RR records whose start LEI is a resolved candidate; Level-1 records
+    for resolved LEIs + the bounded one-hop closure over RR end nodes
+    (no recursion); reporting exceptions for resolved LEIs.
+    """
+    from cnmv_iic.adapters import gleif_golden
+    from cnmv_iic.storage import write_gleif_golden
+
+    dataset_root = Path(dataset_root)
+    inputs = {
+        "lei2": Path(lei_zip), "rr": Path(rr_zip), "repex": Path(repex_zip)}
+    members: dict[str, tuple[str, str]] = {}   # kind -> (member, snapshot)
+    dates: set[str] = set()
+    for kind, zp in inputs.items():
+        with zipfile.ZipFile(zp) as zf:
+            members[kind] = gleif_golden.member_info(zf, kind)
+        dates.add(members[kind][1])
+    if len(dates) != 1:
+        raise ParseError(
+            f"snapshot_date_mismatch across GLEIF artifacts: "
+            f"{sorted(dates)} — the three files must be the same "
+            f"publication date")
+    snapshot_date = dates.pop()
+
+    family = {"lei2": "lei-cdf", "rr": "rr-cdf", "repex": "repex"}
+    artifacts: dict[str, tuple[SourceArtifact, bool]] = {}
+    for kind, zp in inputs.items():
+        a, is_new = store.put(
+            period=snapshot_date,
+            source_page=GLEIF_GOLDEN_PAGE,
+            source_url=str(zp),
+            content_type="application/zip",
+            data=zp.read_bytes(),
+            retrieved_at=retrieved_at,
+            provider="gleif",
+            source_family=family[kind],
+            source_id_prefix=f"gleif-{family[kind]}",
+        )
+        artifacts[kind] = (a, is_new)
+
+    manifest_path = (dataset_root / "manifests"
+                     / f"resolution_gleif_golden_{snapshot_date}.json")
+    if not any(n for _, n in artifacts.values()) and manifest_path.exists():
+        m = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return GoldenIngestResult(
+            snapshot_date=snapshot_date,
+            artifact_ids=m["source_artifact_ids"],
+            artifacts_new=0,
+            exported=False,
+            wanted_lei_count=m["wanted_lei_count"],
+            closure_lei_count=m["closure_lei_count"],
+            legal_entities=m["legal_entities"],
+            entities_resolved_role=m["entities_resolved_role"],
+            entities_closure_role=m["entities_closure_role"],
+            relationships=m["relationships"],
+            relationship_types=tuple(m["relationship_types"]),
+            relationship_exceptions=m["relationship_exceptions"],
+            evidence_fingerprint=m["evidence_fingerprint"],
+        )
+
+    wanted = _wanted_leis(dataset_root)
+    if not wanted:
+        raise NotFoundError(
+            "zero resolved candidate LEIs — nothing to close over")
+
+    def _member_sha(kind: str) -> str:
+        name = members[kind][0]
+        sha = next((m.sha256 for m in artifacts[kind][0].members
+                    if m.name == name), None)
+        if sha is None:
+            raise ParseError(f"member {name} not in artifact manifest")
+        return sha
+
+    artifact_ids = {
+        gleif_golden.DATASET_LEI: artifacts["lei2"][0].source_id,
+        gleif_golden.DATASET_RR: artifacts["rr"][0].source_id,
+        gleif_golden.DATASET_REPEX: artifacts["repex"][0].source_id,
+    }
+
+    # RR first: learn the one-hop closure (end nodes not already wanted)
+    relationships = []
+    with zipfile.ZipFile(store.raw_path(artifacts["rr"][0])) as zf:
+        member, _ = members["rr"]
+        for ordinal, rec in gleif_golden.iter_relationships(
+                zf, member, wanted):
+            relationships.append(gleif_golden.build_relationship_observation(
+                rec, snapshot_date=snapshot_date,
+                artifact_id=artifact_ids[gleif_golden.DATASET_RR],
+                source_sha256=artifacts["rr"][0].sha256,
+                member_name=member, member_sha256=_member_sha("rr"),
+                retrieved_at=artifacts["rr"][0].retrieved_at,
+                ordinal=ordinal))
+    closure = {r.end_lei for r in relationships if r.end_lei} - wanted
+
+    exceptions = []
+    with zipfile.ZipFile(store.raw_path(artifacts["repex"][0])) as zf:
+        member, _ = members["repex"]
+        for ordinal, rec in gleif_golden.iter_exceptions(
+                zf, member, wanted):
+            exceptions.append(gleif_golden.build_exception_observation(
+                rec, snapshot_date=snapshot_date,
+                artifact_id=artifact_ids[gleif_golden.DATASET_REPEX],
+                source_sha256=artifacts["repex"][0].sha256,
+                member_name=member, member_sha256=_member_sha("repex"),
+                retrieved_at=artifacts["repex"][0].retrieved_at,
+                ordinal=ordinal))
+
+    entities = []
+    with zipfile.ZipFile(store.raw_path(artifacts["lei2"][0])) as zf:
+        member, _ = members["lei2"]
+        for ordinal, rec in gleif_golden.iter_lei_records(
+                zf, member, wanted | closure):
+            role = ("resolved" if rec["lei"] in wanted
+                    else "closure_end_node")
+            entities.append(gleif_golden.build_entity_observation(
+                rec, role=role, snapshot_date=snapshot_date,
+                artifact_id=artifact_ids[gleif_golden.DATASET_LEI],
+                source_sha256=artifacts["lei2"][0].sha256,
+                member_name=member, member_sha256=_member_sha("lei2"),
+                retrieved_at=artifacts["lei2"][0].retrieved_at,
+                ordinal=ordinal))
+
+    m = write_gleif_golden(
+        dataset_root,
+        snapshot_date=snapshot_date,
+        entities=entities,
+        relationships=relationships,
+        exceptions=exceptions,
+        artifact_ids=artifact_ids,
+        wanted_lei_count=len(wanted),
+        closure_lei_count=len(closure),
+    )
+    return GoldenIngestResult(
+        snapshot_date=snapshot_date,
+        artifact_ids=artifact_ids,
+        artifacts_new=sum(1 for _, n in artifacts.values() if n),
+        exported=True,
+        wanted_lei_count=m["wanted_lei_count"],
+        closure_lei_count=m["closure_lei_count"],
+        legal_entities=m["legal_entities"],
+        entities_resolved_role=m["entities_resolved_role"],
+        entities_closure_role=m["entities_closure_role"],
+        relationships=m["relationships"],
+        relationship_types=tuple(m["relationship_types"]),
+        relationship_exceptions=m["relationship_exceptions"],
+        evidence_fingerprint=m["evidence_fingerprint"],
+    )

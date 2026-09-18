@@ -54,7 +54,9 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
                 f"SELECT * FROM read_parquet('{glob}', hive_partitioning=true)"
             )
     # G7 provider evidence — partitioned by (provider, snapshot), not period
-    for table in ("resolution_observations", "resolution_candidates"):
+    for table in ("resolution_observations", "resolution_candidates",
+                  "legal_entities", "relationships",
+                  "relationship_exceptions"):
         if (root / table).exists():
             glob = str(root / table / "provider=*" / "snapshot=*"
                        / "*.parquet")
@@ -1911,6 +1913,47 @@ def security_evidence(
     for o in obs:
         o["candidates"] = by_obs.get(o["observation_id"], [])
     return {"isin": isin, "observations": obs}
+
+
+_LEI_RE = re.compile(r"^[0-9A-Z]{18}[0-9]{2}$")
+
+
+def lei_evidence(root: Path | str, lei: str) -> dict:
+    """G7-B evidence for one LEI: Level-1 entity, relationships,
+    reporting exceptions — verbatim, no adjudication.
+
+    ``relationships_as_start`` are the entity's own reported relations
+    (upward); ``relationships_as_end`` are stored relations pointing at
+    it. Absence of rows is not asserted as absence of the relationship —
+    check ``exceptions`` for declared reporting exceptions first.
+    """
+    lei = lei.strip().upper()
+    if not _LEI_RE.match(lei):
+        raise NotFoundError(
+            f"{lei!r} is not a well-formed LEI (20 chars, "
+            f"ISO-17442) — no evidence lookup attempted")
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    out: dict = {"lei": lei}
+    if "legal_entities" not in tables:
+        out["note"] = ("no GLEIF golden evidence loaded — run "
+                       "`cnmv-iic ingest-provider gleif-golden` first")
+        return out
+    out["entities"] = _rows(con.execute(
+        "SELECT * FROM legal_entities WHERE lei = ? "
+        "ORDER BY provider_snapshot_date DESC, evidence_role", [lei]))
+    out["relationships_as_start"] = _rows(con.execute(
+        "SELECT * FROM relationships WHERE start_lei = ? "
+        "ORDER BY provider_snapshot_date DESC, relationship_type", [lei]))
+    out["relationships_as_end"] = _rows(con.execute(
+        "SELECT * FROM relationships WHERE end_lei = ? "
+        "ORDER BY provider_snapshot_date DESC, relationship_type", [lei]))
+    out["exceptions"] = _rows(con.execute(
+        "SELECT * FROM relationship_exceptions WHERE lei = ? "
+        "ORDER BY provider_snapshot_date DESC, exception_category",
+        [lei]))
+    return out
 
 
 def dataset_info(root: Path | str) -> dict:

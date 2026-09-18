@@ -759,3 +759,106 @@ class ResolutionCandidate:
     relationship_semantics: str     # "isin_issuer_to_lei"
     provider_record_locator: str    # "<member>#row=<n>" — to the GLEIF csv line
     raw_json: str                   # verbatim provider fields as JSON
+
+
+# ---------------------------------------------------------------------------
+# G7-B — GLEIF Level-1 entity + Level-2 relationship/exception evidence.
+# Evidence only: relationship types are verbatim GLEIF vocabulary, never
+# collapsed to a generic "parent". Absence of an RR record is NOT absence
+# of a parent — reporting exceptions are first-class rows.
+# ---------------------------------------------------------------------------
+
+# why a legal-entity record was pulled into evidence
+ENTITY_EVIDENCE_RESOLVED = "resolved"             # LEI appears in G7-A candidates
+ENTITY_EVIDENCE_CLOSURE = "closure_end_node"      # one-hop RR end node
+
+
+@dataclass(frozen=True)
+class LegalEntityObservation:
+    """GLEIF LEI-CDF Level-1 "who is who" record for one LEI."""
+
+    entity_id: str                  # "<provider>/<snapshot>/<lei>"
+    lei: str
+    provider: str                   # "gleif_lei_cdf"
+    provider_dataset: str           # "lei-cdf-3.1"
+    provider_snapshot_date: str     # YYYY-MM-DD
+    provider_artifact_id: str
+    evidence_role: str              # resolved | closure_end_node
+    legal_name: str | None
+    other_names_json: str           # JSON array, verbatim
+    legal_address_json: str         # JSON object, verbatim
+    headquarters_address_json: str  # JSON object, verbatim
+    legal_jurisdiction: str | None
+    entity_category: str | None     # FUND|SUBFUND|GENERAL|BRANCH|...
+    entity_status: str | None       # ACTIVE|INACTIVE|...
+    legal_form: str | None          # ISO 20275 code / free text, verbatim
+    registration_status: str | None # ISSUED|LAPSED|...
+    initial_registration_date: str | None
+    last_update_date: str | None
+    next_renewal_date: str | None
+    managing_lou: str | None
+    provider_record_locator: str    # xml element ordinal
+    raw_json: str                   # full verbatim field set
+    retrieved_at: str
+    source_sha256: str
+    member_name: str
+    member_sha256: str
+    parser: str
+    parser_version: str
+
+
+@dataclass(frozen=True)
+class RelationshipObservation:
+    """One GLEIF RR-CDF record — verbatim relationship type + status.
+
+    ``relationship_type`` keeps the official vocabulary verbatim:
+    IS_DIRECTLY_CONSOLIDATED_BY, IS_ULTIMATELY_CONSOLIDATED_BY,
+    IS_INTERNATIONAL_BRANCH_OF, IS_FUND-MANAGED_BY, IS_SUBFUND_OF,
+    IS_FEEDER_TO. Never renamed to a generic "parent".
+    """
+
+    relationship_id: str            # "<provider>/<snapshot>/<start>/<type>/<end>"
+    start_lei: str
+    end_lei: str
+    relationship_type: str          # verbatim GLEIF vocabulary
+    relationship_status: str        # ACTIVE|INACTIVE|NULL, verbatim
+    relationship_periods_json: str  # [{type,start_date,end_date}]
+    validation_sources: str | None  # verbatim
+    registration_status: str | None
+    provider: str                   # "gleif_rr_cdf"
+    provider_dataset: str           # "rr-cdf-2.1"
+    provider_snapshot_date: str
+    provider_artifact_id: str
+    provider_record_locator: str
+    raw_json: str
+    retrieved_at: str
+    source_sha256: str
+    member_name: str
+    member_sha256: str
+    parser: str
+    parser_version: str
+
+
+@dataclass(frozen=True)
+class RelationshipExceptionObservation:
+    """GLEIF Reporting Exceptions row — an officially declared reason a
+    consolidation-parent relationship cannot be provided. NOT a NULL:
+    NO_KNOWN_PERSON / NON_CONSOLIDATING / NATURAL_PERSONS / NO_LEI /
+    NON_PUBLIC are first-class evidence."""
+
+    exception_id: str               # "<provider>/<snapshot>/<lei>/<category>"
+    lei: str
+    exception_category: str         # DIRECT_/ULTIMATE_ACCOUNTING_CONSOLIDATION_PARENT
+    exception_reason: str           # verbatim GLEIF vocabulary
+    provider: str                   # "gleif_repex"
+    provider_dataset: str           # "repex-2.1"
+    provider_snapshot_date: str
+    provider_artifact_id: str
+    provider_record_locator: str
+    raw_json: str
+    retrieved_at: str
+    source_sha256: str
+    member_name: str
+    member_sha256: str
+    parser: str
+    parser_version: str

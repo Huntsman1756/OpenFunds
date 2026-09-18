@@ -14,7 +14,10 @@ import typer
 from cnmv_iic.artifacts.store import ArtifactStore
 from cnmv_iic.errors import CnmvIicError
 from cnmv_iic.ingest import update_period
-from cnmv_iic.provider_ingest import ingest_gleif_isin_lei
+from cnmv_iic.provider_ingest import (
+    ingest_gleif_golden,
+    ingest_gleif_isin_lei,
+)
 from cnmv_iic.query import (
     class_observation_summary,
     daily_series,
@@ -25,6 +28,7 @@ from cnmv_iic.query import (
     funds_by_institution,
     funds_holding,
     identity_events,
+    lei_evidence,
     official_returns,
     patrimony_allocation,
     patrimony_reconciliation,
@@ -160,6 +164,64 @@ def ingest_provider(
         },
         json_out,
     )
+
+
+@app.command(name="ingest-gleif-golden")
+def ingest_gleif_golden_cmd(
+    lei_cdf: Annotated[Path, typer.Option(
+        "--lei-cdf", help="Pinned LEI-CDF 3.1 concatenated ZIP")],
+    rr_cdf: Annotated[Path, typer.Option(
+        "--rr-cdf", help="Pinned RR-CDF 2.1 concatenated ZIP")],
+    repex: Annotated[Path, typer.Option(
+        "--repex", help="Pinned Reporting Exceptions 2.1 ZIP")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Ingest the three GLEIF concatenated files as entity/relationship/
+    exception evidence for LEIs reachable from G7-A candidates.
+
+    The three files must declare the SAME snapshot date — mixed bundles
+    are rejected fail-closed. Extraction is filtered, not a GLEIF replica:
+    relationships where the start LEI is a resolved candidate; Level-1
+    records for resolved LEIs plus the bounded one-hop closure over RR
+    end nodes; reporting exceptions for resolved LEIs. Relationship
+    types are preserved verbatim — never renamed to "parent".
+    """
+    root = data_dir or _data_dir()
+    store = ArtifactStore(root / "artifacts")
+    result = _run(lambda: ingest_gleif_golden(
+        store, root / "dataset", lei_cdf, rr_cdf, repex))
+    _emit(
+        {
+            "provider_snapshot_date": result.snapshot_date,
+            "artifact_ids": result.artifact_ids,
+            "artifacts_new": result.artifacts_new,
+            "exported": result.exported,
+            "wanted_lei_count": result.wanted_lei_count,
+            "closure_lei_count": result.closure_lei_count,
+            "legal_entities": result.legal_entities,
+            "entities_resolved_role": result.entities_resolved_role,
+            "entities_closure_role": result.entities_closure_role,
+            "relationships": result.relationships,
+            "relationship_types": list(result.relationship_types),
+            "relationship_exceptions": result.relationship_exceptions,
+            "evidence_fingerprint": result.evidence_fingerprint,
+        },
+        json_out,
+    )
+
+
+@app.command()
+def lei(
+    lei_value: Annotated[str, typer.Argument(help="20-char ISO-17442 LEI")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """GLEIF evidence for one LEI: entity record, relationships (both
+    directions), reporting exceptions — verbatim, no adjudication."""
+    root = data_dir or _data_dir()
+    _emit(_run(lambda: lei_evidence(root / "dataset", lei_value)),
+          json_out)
 
 
 @app.command()
