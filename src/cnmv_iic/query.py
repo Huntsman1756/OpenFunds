@@ -495,20 +495,22 @@ def identity_events(
     return [asdict(e) for e in events]
 
 
-def _daily_share_class_key(
-    con: duckdb.DuckDBPyConnection, identifier: str, as_of: str | None
+def _observation_share_class_key(
+    con: duckdb.DuckDBPyConnection, identifier: str, as_of: str | None,
+    *, table: str = "daily", label: str = "FONDMENS daily",
 ) -> tuple[str, dict]:
-    """Resolve an identifier to ONE share-class key for daily observations.
+    """Resolve an identifier to ONE share-class key for observations.
 
-    Grain contract: NAV/AUM/investors are per-share-class — a fund or
-    compartment identifier can never resolve to a class-level series.
-    Resolution uses the registry at the latest period <= as-of when it
-    exists; without registry data only the full FI:r:c:k key is accepted.
+    Grain contract: NAV/AUM/investors/quarterly metrics are per-share-
+    class — a fund or compartment identifier can never resolve to a
+    class-level series. Resolution uses the registry at the latest
+    period <= as-of when it exists; without registry data only the
+    full FI:r:c:k key is accepted.
     """
-    if "daily" not in {r[0] for r in con.execute(
+    if table not in {r[0] for r in con.execute(
             "SELECT table_name FROM information_schema.tables").fetchall()}:
         raise NotFoundError(
-            "no FONDMENS data in dataset — run `cnmv-iic update` first")
+            f"no {label} data in dataset — run `cnmv-iic update` first")
     reg_period = _registry_period(con, as_of)
     if reg_period is not None:
         resolution = resolve(
@@ -535,7 +537,7 @@ def _daily_share_class_key(
             "note": "resolved without registry data",
         }
     raise NotFoundError(
-        f"cannot resolve {identifier!r}: daily observations require a "
+        f"cannot resolve {identifier!r}: {label} observations require a "
         f"share-class ISIN or full key FI:<reg>:<comp>:<clase>")
 
 
@@ -552,7 +554,7 @@ def daily_series(
     if metric not in ("nav", "aum", "investors"):
         raise NotFoundError(f"unknown daily metric {metric!r}")
     con = _con(root)
-    key, info = _daily_share_class_key(con, identifier, to_date)
+    key, info = _observation_share_class_key(con, identifier, to_date)
     clauses, params = ["share_class_key = ?"], [key]
     if from_date:
         clauses.append("observation_date >= ?")
@@ -586,7 +588,7 @@ def class_observation_summary(
 ) -> tuple[dict, dict]:
     """Coverage summary of one share class's daily observations."""
     con = _con(root)
-    key, info = _daily_share_class_key(con, identifier, as_of)
+    key, info = _observation_share_class_key(con, identifier, as_of)
     con.execute(
         "SELECT min(observation_date) AS first_observed,"
         " max(observation_date) AS last_observed,"
@@ -802,6 +804,233 @@ def patrimony_reconciliation(
         "note": "derived comparison only — equality not required; "
                 "cutoff/currency bases differ legitimately",
     }
+
+
+# -- G4-D: FONDTRIM / FONDPATRIMDISVAR accessors -----------------------------
+
+_FEE_COLUMNS = (
+    "comision_gestion", "comision_depositario",
+    "comision_suscripcion_minima", "comision_suscripcion_maxima",
+    "comision_reembolso_minima", "comision_reembolso_maxima",
+    "comision_descuento_favor_fondo_minima",
+    "comision_descuento_favor_fondo_maxima",
+)
+
+_ROLLING_COLUMNS = (
+    "official_return", "ratio_total_gastos", "volatilidad_vl",
+)
+
+
+def _quarterly_row(
+    con: duckdb.DuckDBPyConnection, identifier: str, period: str,
+) -> tuple[dict, dict]:
+    key, info = _observation_share_class_key(
+        con, identifier, period, table="quarterly", label="FONDTRIM")
+    con.execute(
+        "SELECT * FROM quarterly"
+        " WHERE share_class_key = ? AND period = ?", [key, period])
+    rows = _rows(con)
+    if not rows:
+        raise NotFoundError(f"no FONDTRIM row for {key} at {period}")
+    return info, rows[0]
+
+
+def quarterly_metrics(
+    root: Path | str, identifier: str, period: str,
+) -> dict:
+    """Full FONDTRIM row for one share class — verbatim observed fields.
+
+    Fields are grouped by unit basis: monetary values are in the class
+    ``codigo_divisa`` (NOT assumed EUR); fees, official returns, ratios
+    and volatility are percentages. Nothing is renamed or derived —
+    ``RatioTotalGastos`` is kept verbatim, never called "TER".
+    """
+    con = _con(root)
+    info, r = _quarterly_row(con, identifier, period)
+    return {
+        "resolution": info,
+        "period": period,
+        "identity": {c: r[c] for c in (
+            "share_class_key", "compartment_key", "fund_key",
+            "numero_clase", "isin_raw", "isin_state", "registry_state",
+            "codigo_divisa", "codigo_divisa_iic", "vocacion_inversora",
+            "clase_fondo", "periodicidad_calculo_vl",
+            "base_calculo_comision_gestion",
+            "sistema_imputacion_comisiones")},
+        "stock_in_class_currency": {c: r[c] for c in (
+            "patrimonio", "valor_liquidativo", "numero_participaciones",
+            "numero_participes", "beneficio_dividendo_bruto")},
+        "fees_pct": {c: r[c] for c in _FEE_COLUMNS},
+        "official_return_pct": {c: r[c] for c in (
+            "official_return_t", "official_return_t_1",
+            "official_return_t_2", "official_return_t_3")},
+        "ratio_total_gastos_pct": {c: r[c] for c in (
+            "ratio_total_gastos_t", "ratio_total_gastos_t_1",
+            "ratio_total_gastos_t_2", "ratio_total_gastos_t_3")},
+        "volatilidad_vl_pct": {c: r[c] for c in (
+            "volatilidad_vl_t", "volatilidad_vl_t_1",
+            "volatilidad_vl_t_2", "volatilidad_vl_t_3")},
+        "provenance": {c: r[c] for c in (
+            "source_artifact_id", "source_sha256", "member_name",
+            "member_sha256", "xml_locator", "parser", "parser_version")},
+        "semantics": {
+            "stock_fields": "in codigo_divisa (class denomination), "
+                            "NOT assumed EUR",
+            "fee_fields": "percentages, signed verbatim "
+                          "(negative fees occur)",
+            "official_return": "official CNMV non-annualized return, "
+                               "verbatim; NULL = insufficient history",
+        },
+    }
+
+
+def quarterly_fees(
+    root: Path | str, identifier: str, period: str,
+) -> dict:
+    """FONDTRIM fee block for one share class — percentages, verbatim."""
+    out = quarterly_metrics(root, identifier, period)
+    return {
+        "resolution": out["resolution"],
+        "period": period,
+        "identity": {k: out["identity"][k] for k in (
+            "share_class_key", "isin_raw", "codigo_divisa",
+            "registry_state")},
+        "fees_pct": out["fees_pct"],
+        "provenance": out["provenance"],
+        "semantics": "percentages over the class fee basis, verbatim; "
+                     "NULL = absent in source",
+    }
+
+
+def official_returns(
+    root: Path | str, identifier: str,
+    from_period: str | None, to_period: str | None,
+) -> tuple[dict, list[dict]]:
+    """Official CNMV return series for one share class across periods.
+
+    ``official_return_t`` per period only — the T-1/T-2/T-3 lookbacks
+    are shown verbatim by `metrics` for a single period. Never
+    recalculated, never mixed with NAV-derived returns.
+    """
+    con = _con(root)
+    key, info = _observation_share_class_key(
+        con, identifier, to_period, table="quarterly", label="FONDTRIM")
+    clauses, params = ["share_class_key = ?"], [key]
+    if from_period:
+        clauses.append("period >= ?")
+        params.append(from_period)
+    if to_period:
+        clauses.append("period <= ?")
+        params.append(to_period)
+    con.execute(
+        f"SELECT period, official_return_t AS official_return_pct,"
+        f" registry_state, codigo_divisa, source_artifact_id,"
+        f" xml_locator FROM quarterly WHERE {' AND '.join(clauses)}"
+        f" ORDER BY period",
+        params,
+    )
+    rows = _rows(con)
+    return info | {
+        "from_period": from_period, "to_period": to_period,
+        "periods": len(rows),
+        "semantics": "official CNMV non-annualized quarterly return "
+                     "(percent), verbatim; NULL = insufficient history; "
+                     "never recomputed from NAV",
+    }, rows
+
+
+_PDV_MONETARY = (
+    "dp_inversiones_financieras", "cartera_interior", "cartera_exterior",
+    "intereses_cartera", "inversiones_dudosas", "liquidez", "resto",
+    "total_patrimonio", "patrimonio_fin_periodo_anterior",
+    "patrimonio_fin_periodo_actual",
+)
+
+_PDV_PCT = (
+    "suscripciones_reembolsos_netos", "beneficios_brutos_distribuidos",
+    "rendimientos_netos", "rendimientos_gestion", "intereses",
+    "dividendos", "resultados_renta_fija", "resultados_renta_variable",
+    "resultados_depositos", "resultados_derivados", "resultados_iic",
+    "otros_resultados", "otros_rendimientos", "gastos_repercutidos",
+    "comision_gestion", "comision_depositario",
+    "gastos_servicios_exteriores", "otros_gastos_gestion",
+    "otros_gastos_repercutidos", "ingresos", "comisiones_descuento",
+    "comisiones_retrocedidas", "otros_ingresos",
+)
+
+
+def patrimony_allocation(
+    root: Path | str, identifier: str, period: str,
+) -> tuple[dict, list[dict]]:
+    """FONDPATRIMDISVAR stock + flow rows per compartment.
+
+    The two field families are kept rigidly apart: ``monetary_*`` is in
+    the IIC ``codigo_divisa_iic``; ``pct_*`` are signed percentages over
+    average daily patrimonio (documented CNMV semantics, not monetary).
+    """
+    con = _con(root)
+    if "patrimony" not in {r[0] for r in con.execute(
+            "SELECT table_name FROM information_schema.tables").fetchall()}:
+        raise NotFoundError(
+            "no FONDPATRIMDISVAR data in dataset — "
+            "run `cnmv-iic update` first")
+    reg_period = _registry_period(con, period)
+    if reg_period is not None:
+        resolution = resolve(
+            identifier,
+            share_classes=_share_class_rows(con, reg_period),
+            funds=_fund_owners(con, reg_period),
+        )
+        owners = resolution.portfolio_owners
+        if not owners:
+            raise NotFoundError(
+                f"{identifier!r} does not resolve to any compartment:"
+                f" {resolution.kind.value}"
+                + (f" — {resolution.note}" if resolution.note else ""))
+        info = _resolution_info(resolution)
+    elif identifier.count(":") == 2:
+        owners, info = (identifier,), {
+            "requested_identifier": identifier,
+            "resolved_as": ResolutionKind.EXACT_COMPARTMENT.value,
+            "note": "resolved without registry data",
+        }
+    else:
+        raise NotFoundError(
+            f"cannot resolve {identifier!r}: patrimony requires a "
+            "fund/compartment key or share-class ISIN")
+    con.execute(
+        "SELECT * FROM patrimony"
+        " WHERE period = ? AND compartment_key IN "
+        f"({','.join('?' * len(owners))}) ORDER BY compartment_key",
+        [period, *owners])
+    rows = _rows(con)
+    out = []
+    for r in rows:
+        out.append({
+            "compartment_key": r["compartment_key"],
+            "codigo_divisa_iic": r["codigo_divisa_iic"],
+            "registry_state": r["registry_state"],
+            "indice_rotacion_cartera": {
+                "actual": r["indice_rotacion_cartera_actual"],
+                "anterior": r["indice_rotacion_cartera_anterior"],
+            },
+            "monetary_in_iic_currency": {c: r[c] for c in _PDV_MONETARY},
+            "pct_of_avg_daily_patrimonio": {c: r[c] for c in _PDV_PCT},
+            "provenance": {c: r[c] for c in (
+                "source_artifact_id", "source_sha256", "member_name",
+                "member_sha256", "xml_locator")},
+        })
+    return info | {
+        "period": period,
+        "compartments": len(out),
+        "semantics": {
+            "monetary_in_iic_currency":
+                "stock fields in codigo_divisa_iic (IIC denomination)",
+            "pct_of_avg_daily_patrimonio":
+                "signed % over average daily patrimonio — "
+                "NOT monetary; flow/result decomposition",
+        },
+    }, out
 
 
 def dataset_info(root: Path | str) -> dict:

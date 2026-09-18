@@ -22,7 +22,11 @@ from cnmv_iic.query import (
     funds_by_institution,
     funds_holding,
     identity_events,
+    official_returns,
+    patrimony_allocation,
     patrimony_reconciliation,
+    quarterly_fees,
+    quarterly_metrics,
     share_class_info,
 )
 from cnmv_iic.query import holdings as query_holdings
@@ -365,6 +369,79 @@ def reconcile(
             tolerance_rel=Decimal(str(tolerance)))),
         json_out,
     )
+
+
+@app.command()
+def metrics(
+    identifier: Annotated[str, typer.Argument(
+        help="Share-class ISIN or key FI:<reg>:<comp>:<clase>")],
+    as_of: Annotated[str, typer.Option(
+        help="quarterly period YYYY-MM")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Full FONDTRIM quarterly row for one share class — verbatim fields."""
+    root = data_dir or _data_dir()
+    _emit(
+        _run(lambda: quarterly_metrics(root / "dataset", identifier, as_of)),
+        json_out,
+    )
+
+
+@app.command()
+def fees(
+    identifier: Annotated[str, typer.Argument(
+        help="Share-class ISIN or key FI:<reg>:<comp>:<clase>")],
+    as_of: Annotated[str, typer.Option(
+        help="quarterly period YYYY-MM")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """FONDTRIM fee block for one share class — percentages, verbatim."""
+    root = data_dir or _data_dir()
+    _emit(
+        _run(lambda: quarterly_fees(root / "dataset", identifier, as_of)),
+        json_out,
+    )
+
+
+@app.command(name="official-returns")
+def official_returns_cmd(
+    identifier: Annotated[str, typer.Argument(
+        help="Share-class ISIN or key FI:<reg>:<comp>:<clase>")],
+    from_period: Annotated[str | None, typer.Option(
+        "--from", help="period YYYY-MM")] = None,
+    to_period: Annotated[str | None, typer.Option(
+        "--to", help="period YYYY-MM")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Official CNMV non-annualized return series — verbatim, never
+    recomputed."""
+    root = data_dir or _data_dir()
+    meta, rows = _run(lambda: official_returns(
+        root / "dataset", identifier, from_period, to_period))
+    _emit({"resolution": meta, "observations": rows}, json_out)
+
+
+@app.command()
+def allocation(
+    identifier: Annotated[str, typer.Argument(
+        help="Fund/compartment key or share-class ISIN")],
+    as_of: Annotated[str, typer.Option(
+        help="period YYYY-MM")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """FONDPATRIMDISVAR patrimony stock + flow rows per compartment.
+
+    Monetary fields in the IIC currency are kept rigidly apart from
+    signed percentage flows over average daily patrimonio.
+    """
+    root = data_dir or _data_dir()
+    meta, rows = _run(lambda: patrimony_allocation(
+        root / "dataset", identifier, as_of))
+    _emit({"resolution": meta, "compartments_rows": rows}, json_out)
 
 
 @app.command()
