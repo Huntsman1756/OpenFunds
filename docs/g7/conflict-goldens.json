@@ -1,0 +1,4084 @@
+{
+ "description": "G7-F golden corpus — every CONFLICT verdict in the live bundle dfe244f5. resolved_lei is NULL for ALL conflicts by invariant; context is explanatory only.",
+ "bundle_fingerprint": "dfe244f54ad119d445ca216a443fdfd1ce6531486a5c39c2814a55ddbfd59def",
+ "adjudication_fingerprint": "6a0d0f9435b5b6ec",
+ "conflicts": 271,
+ "rows": [
+  {
+   "isin": "AT0000712534",
+   "gleif_candidate_lei": "549300O2MVAMFR6BH208",
+   "firds_candidate_lei": "529900B61QGWJ7LB6J86",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_FUND-MANAGED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "AT0000724299",
+   "gleif_candidate_lei": "52990086YE3BU6UKPL70",
+   "firds_candidate_lei": "529900OSCAKTW10UKB89",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_FUND-MANAGED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "AT0000785241",
+   "gleif_candidate_lei": "549300O2MVAMFR6BH208",
+   "firds_candidate_lei": "529900YTMI7CP84ISH50",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_FUND-MANAGED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "AT0000842521",
+   "gleif_candidate_lei": "52990086YE3BU6UKPL70",
+   "firds_candidate_lei": "529900LVCE3OTCKR6L08",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_FUND-MANAGED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "AT0000A07FS1",
+   "gleif_candidate_lei": "549300O2MVAMFR6BH208",
+   "firds_candidate_lei": "52990058ZZHI77E60G45",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_FUND-MANAGED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "AU000000CMW8",
+   "gleif_candidate_lei": "254900SBLVEMJH1SSR05",
+   "firds_candidate_lei": "254900CXXVQP8BTMT087",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "BMG3223R1088",
+   "gleif_candidate_lei": "254900P29PM5UJR3VU91",
+   "firds_candidate_lei": "549300N24XF2VV0B3570",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "BMG611881019",
+   "gleif_candidate_lei": "549300BSGXG3QLIQYT84",
+   "firds_candidate_lei": "213800HRMKKTYH7SKA24",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "CH0038863350",
+   "gleif_candidate_lei": "KY37LUS27QQX7BB93L28",
+   "firds_candidate_lei": "549300PZN3NFSOUXLC42",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "CH0190891181",
+   "gleif_candidate_lei": "254900ZIGEA3M1TF0O96",
+   "firds_candidate_lei": "ML61HP3A4MKTTA1ZB671",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "CH0419042509",
+   "gleif_candidate_lei": "549300PZN3NFSOUXLC42",
+   "firds_candidate_lei": "KY37LUS27QQX7BB93L28",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "CH0466642201",
+   "gleif_candidate_lei": "529900SUJBXTORH0LT80",
+   "firds_candidate_lei": "5299000UUYW66L5LT560",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "DE0008491051",
+   "gleif_candidate_lei": "529900B5ACUK2GD0A723",
+   "firds_candidate_lei": "529900HTWYRE4BD0GQ69",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "DE0009750497",
+   "gleif_candidate_lei": "529900NI1NXRSF0DCX89",
+   "firds_candidate_lei": "529900HTWYRE4BD0GQ69",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "DE000BHY0GN0",
+   "gleif_candidate_lei": "B81CK4ESI35472RHJ606",
+   "firds_candidate_lei": "529900C4RSSBWXBSY931",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "DK0030537840",
+   "gleif_candidate_lei": "984500689F5E5FD1DE19",
+   "firds_candidate_lei": "GP5DT10VX1QRQUKVBK64",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "DK0030548375",
+   "gleif_candidate_lei": "984500689F5E5FD1DE19",
+   "firds_candidate_lei": "GP5DT10VX1QRQUKVBK64",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "ES0180660039",
+   "gleif_candidate_lei": "9598004U729Z0ULJQS48",
+   "firds_candidate_lei": "95980020140005542272",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_FUND-MANAGED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "ES0305668016",
+   "gleif_candidate_lei": "9598001VRW27FQFURC47",
+   "firds_candidate_lei": "9598003CE9SK3XCGKX82",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "FR0000184798",
+   "gleif_candidate_lei": "969500LHIH3NT7PK1V89",
+   "firds_candidate_lei": "1VUV7VQFKUOQSJ21A208",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "FR0004034320",
+   "gleif_candidate_lei": "9695004QARWGOCBZ1Y29",
+   "firds_candidate_lei": "969500EM4CTEVZNVMG10",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "FR0010754200",
+   "gleif_candidate_lei": "969500B7ME7QGYO5XR37",
+   "firds_candidate_lei": "DQ2T0MMUTO0IPF9G9Z35",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_FUND-MANAGED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "FR0013201431",
+   "gleif_candidate_lei": "VBHFXSYT7OG62HNT8T76",
+   "firds_candidate_lei": "969500MOQLCWGNJR5B72",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "FR0013324357",
+   "gleif_candidate_lei": "969500MPXAB6Z57KHQ13",
+   "firds_candidate_lei": "549300E9PC51EN656011",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "FR0013425147",
+   "gleif_candidate_lei": "549300LOC0C0BMC7FX79",
+   "firds_candidate_lei": "5493006U67P2Y34N2G08",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "FR0013425154",
+   "gleif_candidate_lei": "549300LOC0C0BMC7FX79",
+   "firds_candidate_lei": "5493006U67P2Y34N2G08",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "FR0013428067",
+   "gleif_candidate_lei": "969500MMPQVHK671GT54",
+   "firds_candidate_lei": "549300YGXL5Z3R14K812",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "FR0013428943",
+   "gleif_candidate_lei": "969500TJLHIZLFRWEQ48",
+   "firds_candidate_lei": "969500XXRPGD7HCAFA90",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "FR0013513538",
+   "gleif_candidate_lei": "969500TJLHIZLFRWEQ48",
+   "firds_candidate_lei": "969500XXRPGD7HCAFA90",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "FR00140005T0",
+   "gleif_candidate_lei": "96950026BLIV09FMSM49",
+   "firds_candidate_lei": "9695000EHMS84KKP2785",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "FR0014011NC0",
+   "gleif_candidate_lei": "969500GAWMUHG918JX32",
+   "firds_candidate_lei": "9695000NVUKTJ495CJ05",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "GB00BS9F9D74",
+   "gleif_candidate_lei": "213800N2NKOTYUNRCU14",
+   "firds_candidate_lei": "213800XX6UAMF51CYM12",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "IE0000LVTJ08",
+   "gleif_candidate_lei": "635400CYEIV3DC2CPY64",
+   "firds_candidate_lei": "635400XHYB6RWAKQMD62",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0000TZZ2B2",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "254900KUBNI9F8ILXK25",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0002PG6CA6",
+   "gleif_candidate_lei": "635400BRTVJRP8KWVW82",
+   "firds_candidate_lei": "254900MPL67XCXZYBG69",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0002Y8CX98",
+   "gleif_candidate_lei": "5493003W2LPY6BANN753",
+   "firds_candidate_lei": "213800LCL8G9AMYW5K80",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0003A512E4",
+   "gleif_candidate_lei": "6354004QXYLNRJEQFS87",
+   "firds_candidate_lei": "635400I2COZBXFRGYG81",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0003Z9E2Y3",
+   "gleif_candidate_lei": "6354005DAVWC6RVTCO47",
+   "firds_candidate_lei": "635400TZVL5PPZPOOS52",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0006HMLPV6",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "549300FZ7YUTJ13G1V05",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0007Y8Y157",
+   "gleif_candidate_lei": "635400BRTVJRP8KWVW82",
+   "firds_candidate_lei": "254900ZP8HD9KY877G40",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0008470928",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "549300FS4OSSFUCNC234",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "IE000BXC49I6",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "549300YMFJ0VC1WSRY29",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000COQKPO9",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "54930070QYLC2UME7Q60",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000G9SBZJ0",
+   "gleif_candidate_lei": "549300J6BQG3C5K08492",
+   "firds_candidate_lei": "529900LB1511Q4LT8A17",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000GA3D489",
+   "gleif_candidate_lei": "6354004QXYLNRJEQFS87",
+   "firds_candidate_lei": "635400D8PDNDJGYTEJ07",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000I5MBLC4",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "549300FZ7YUTJ13G1V05",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000JJQ6248",
+   "gleif_candidate_lei": "254900FEDVTRKPLFK611",
+   "firds_candidate_lei": "2549001S0XYTNIF85W37",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000LGHLQ71",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "2549007IT9Z006JI8718",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000M02BVY5",
+   "gleif_candidate_lei": "635400TOBIE7TESI6B53",
+   "firds_candidate_lei": "9845008FBE57CA981157",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000M7V94E1",
+   "gleif_candidate_lei": "635400MS3JWKKMQUOK57",
+   "firds_candidate_lei": "254900EAISPQI121JX11",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "IE000NDWFGA5",
+   "gleif_candidate_lei": "6354005DAVWC6RVTCO47",
+   "firds_candidate_lei": "635400GLDEJN13TKIJ68",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000O5M6XO1",
+   "gleif_candidate_lei": "6354004QXYLNRJEQFS87",
+   "firds_candidate_lei": "635400VDK3B3D2SSMC07",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000O6Z73N7",
+   "gleif_candidate_lei": "635400YMRJ8Q9PEKP753",
+   "firds_candidate_lei": "635400A4KUPJWV8PFX30",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000O8S1EX4",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "5493006UW36ZSXHP0G74",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000OJ5TQP4",
+   "gleif_candidate_lei": "635400M7LYIHI1Z4JW95",
+   "firds_candidate_lei": "254900I7JQO3K2LJ5E79",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_SUBFUND_OF",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE",
+    "INACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000QF66PE6",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "549300ZZIPWTMHECV620",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000QGWZZO0",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "549300U3RUHUSBSR2F25",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000RLUE8E9",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "549300R7QHZBWJYX2D55",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000RUF4QN8",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "549300K0QESBJ8VZP405",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000UL6CLP7",
+   "gleif_candidate_lei": "6354005DAVWC6RVTCO47",
+   "firds_candidate_lei": "635400TWACJS33SNLP93",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000VQZQ963",
+   "gleif_candidate_lei": "254900FEDVTRKPLFK611",
+   "firds_candidate_lei": "2549003D4MGXU4FHIH80",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000VU9AUN9",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "984500BB2AE2E080RA98",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000WV38GP5",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "549300PYWIW1I2F86407",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000XAGSCY5",
+   "gleif_candidate_lei": "6354005DAVWC6RVTCO47",
+   "firds_candidate_lei": "635400HNYADEWVQRA136",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000XG0ZRI7",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "549300IOSJ6SE24AU714",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE000YU9K6K2",
+   "gleif_candidate_lei": "635400MS3JWKKMQUOK57",
+   "firds_candidate_lei": "254900JLBZ0X9ALOJI86",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "IE000YYE6WK5",
+   "gleif_candidate_lei": "635400BRTVJRP8KWVW82",
+   "firds_candidate_lei": "254900AUH77IV6EFT897",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0032126645",
+   "gleif_candidate_lei": "549300J6BQG3C5K08492",
+   "firds_candidate_lei": "EY3J706TS40UTF0YUG52",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE0032620787",
+   "gleif_candidate_lei": "549300J6BQG3C5K08492",
+   "firds_candidate_lei": "EY3J706TS40UTF0YUG52",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B1FZS244",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "549300E246VVPOTMXZ04",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B1FZS350",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "5493007B43648ZYWSM51",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B1G3DH73",
+   "gleif_candidate_lei": "549300J6BQG3C5K08492",
+   "firds_candidate_lei": "EY3J706TS40UTF0YUG52",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B1W57M07",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "549300EA37TEAE6JC450",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B1YZSC51",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "549300TK70XJKT4LZD88",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B27YCK28",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "5493001UV681N6H3E474",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3DWVS88",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400TBVC4RHQO4KZ59",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3F81R35",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "549300IJBBIPXKWNXJ28",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3RBWM25",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "EEXSPYGY7X8YAH8ZJF49",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3VSSL01",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400WFGV4W4GQMTQ04",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3VVMM84",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "NV9M4O28LWYSNOU5C468",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3VWLG82",
+   "gleif_candidate_lei": "549300Q7FFITMZ2PFZ28",
+   "firds_candidate_lei": "549300TW19NF27J2VP46",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3VWMM18",
+   "gleif_candidate_lei": "549300Q7FFITMZ2PFZ28",
+   "firds_candidate_lei": "549300YPDW1TLJV1YR30",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3WJKG14",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "549300XXYJQ3C2LNNK82",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3XXRP09",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "B8GS85IADJB33D8WL305",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3YCGJ38",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400KZRKKKNVCJXD85",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B3ZW0K18",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "5493002SZ3VQ62RXBS95",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B42NKQ00",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "549300PNOE8XF3W40W61",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B42Z5J44",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "549300P7LUQSAKLRAZ25",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B43HR379",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "5493002PIW2QX6FNXI81",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B441G979",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "549300P21I4X4CISN488",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B4K48X80",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "549300DUUSUNHLKQFH49",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B4KBBD01",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "5493008YLZUG5FV8NM57",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B4L5YC18",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "549300QB88FMT5NV7X53",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B4M7GH52",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "549300S2VX61I0VVKS36",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B4PY7Y77",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "549300XNS7MREWVF4X34",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B4WXJJ64",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "549300ZNVMYNP0271C03",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B52SF786",
+   "gleif_candidate_lei": "549300Q7FFITMZ2PFZ28",
+   "firds_candidate_lei": "549300KOY0J0I1FQMD29",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B52VJ196",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "5493004L12342YG66X18",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B52XQP83",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "549300IM2TOXTYVOWZ85",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B5377D42",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "5493006SH4F0AWRCBB05",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B53HP851",
+   "gleif_candidate_lei": "549300Q7FFITMZ2PFZ28",
+   "firds_candidate_lei": "5493003N1TMIMOXBYK56",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B53SZB19",
+   "gleif_candidate_lei": "549300Q7FFITMZ2PFZ28",
+   "firds_candidate_lei": "549300KGSK42L101CD76",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B5BMR087",
+   "gleif_candidate_lei": "549300Q7FFITMZ2PFZ28",
+   "firds_candidate_lei": "5493006ESS9BM09FB892",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B5L8K969",
+   "gleif_candidate_lei": "549300Q7FFITMZ2PFZ28",
+   "firds_candidate_lei": "5493000TKIDX8SV58K79",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B5MTYK77",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "6354006JCCQKQWIDPD34",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B5MTZ488",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400L2TOIHEV2RPS45",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B5W4TY14",
+   "gleif_candidate_lei": "549300Q7FFITMZ2PFZ28",
+   "firds_candidate_lei": "5493006GWPVZDEXZE117",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B5WHFQ43",
+   "gleif_candidate_lei": "549300Q7FFITMZ2PFZ28",
+   "firds_candidate_lei": "5493007HIRIFR2J8N591",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B60SWW18",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400HBDZSRZI7VAV18",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B60SWX25",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400HBSITNQELEBE97",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B60SWY32",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400A1O6HAK6KN8736",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B60SX170",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400RDASOUKCSWCI51",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B60SX287",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400WFR7DM7UFO1V24",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B60SX394",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "6354007BW1OH9AUD2H21",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B652H904",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "549300HFAXS8YKSYM484",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B6R52036",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "5493006SO1ZG0UERXL53",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B6R52143",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "549300OCIHQMT943B669",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B6R52259",
+   "gleif_candidate_lei": "549300QETNU1W5JY7Z94",
+   "firds_candidate_lei": "549300SXOXF8WNMMRG46",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B810Q511",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "3RUL6S95KMUYZMW88872",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B8GKDB10",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "5493005QQPXTFS0MP639",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00B945VV12",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "549300H52HCNP55DFN76",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BCBJG560",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300C4WEQ60SPVDX70",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BCLWRD08",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300UI30E2BMN50I82",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BD1F4L37",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "5493004JBPY1T6KWI878",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BD1F4N50",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "5493002MAPYJ3JF5H459",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BD6FTQ80",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400IIHDINHU4FPW35",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BD9MMF62",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "549300VLYW8C82SV8738",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE",
+    "NULL"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BDFBTQ78",
+   "gleif_candidate_lei": "635400BRTVJRP8KWVW82",
+   "firds_candidate_lei": "6354008ZNKYNAWXLJY69",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BDS67326",
+   "gleif_candidate_lei": "635400BRTVJRP8KWVW82",
+   "firds_candidate_lei": "635400MS3JWKKMQUOK57",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF11F565",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "549300IJBBIPXKWNXJ28",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF2B0L69",
+   "gleif_candidate_lei": "5493007UGK254BW83T77",
+   "firds_candidate_lei": "5493000WV5YQVU6V3R61",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF2FN869",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "549300M83IV9PRQ2B094",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF4G6Y48",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "5493003MML3DKPLHHR48",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF4G6Z54",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "549300P25ZMF0U5P3212",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF4G7076",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "549300NSUZYEVW9Y4O71",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF4RFH31",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "549300NWKWVYDYY6N595",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF540Z61",
+   "gleif_candidate_lei": "635400BRTVJRP8KWVW82",
+   "firds_candidate_lei": "635400RNPEUZVL51OW15",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF59RW70",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "549300QZUWYXU18WGV36",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BF59RX87",
+   "gleif_candidate_lei": "549300UW7NYQH5503229",
+   "firds_candidate_lei": "549300Z5FR0TBRCVY095",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BFPM9T72",
+   "gleif_candidate_lei": "549300J6BQG3C5K08492",
+   "firds_candidate_lei": "EY3J706TS40UTF0YUG52",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BFPM9V94",
+   "gleif_candidate_lei": "549300J6BQG3C5K08492",
+   "firds_candidate_lei": "EY3J706TS40UTF0YUG52",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BFTWP510",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300WLRPDYSTR1UK28",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BFXR7892",
+   "gleif_candidate_lei": "635400YMRJ8Q9PEKP753",
+   "firds_candidate_lei": "635400ATNLD34P5YXA50",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BFYV9M80",
+   "gleif_candidate_lei": "635400IFF1RTLXVB7K82",
+   "firds_candidate_lei": "635400CS2PNX9ELKKQ77",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BFZPF439",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "63540079IESLQABALN14",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BG0NY640",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "5493004L1J8DLBP0LZ70",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BG88WG77",
+   "gleif_candidate_lei": "5493003W2LPY6BANN753",
+   "firds_candidate_lei": "549300PH0MJT3TEL3H26",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BGBN6P67",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "549300WAY206NG6IL721",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BH3YZ803",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "549300LUZQ85YSPWNP96",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BHJYDV33",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "549300H6TR8XVFIW8W82",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BHZRQZ17",
+   "gleif_candidate_lei": "5493007UGK254BW83T77",
+   "firds_candidate_lei": "549300N8L9MGVE0RWQ95",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BHZRR030",
+   "gleif_candidate_lei": "5493007UGK254BW83T77",
+   "firds_candidate_lei": "5493000OC9MNK3H8TW90",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BHZRR147",
+   "gleif_candidate_lei": "5493007UGK254BW83T77",
+   "firds_candidate_lei": "5493001SWO7E7MZ24031",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BJ38QD84",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300TQGA8EOGMEWM77",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BJ5JS448",
+   "gleif_candidate_lei": "635400HVTBKDRPKESM65",
+   "firds_candidate_lei": "635400XMNMFKOYHZQ883",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BJQRDK83",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "549300IKZ21UH0RQ7V16",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BJQRDN15",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "5493003S3W62ZS1AXM25",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BK80XL30",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "5493009K361H0AKHZM15",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BKS7L097",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "549300ZZIPWTMHECV620",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BKWD3B81",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "5493002UUBXYPNHXKC32",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BKWQ0D84",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "5493001LKGRKOXZ62995",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BKWQ0F09",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300XR8J1YR1L99580",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BKWQ0G16",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "5493002P18BC01O7TL03",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BKWQ0H23",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300JSTC7740DPBJ43",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BKWQ0J47",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "54930057M4Z3UU0DFR13",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BKWQ0P07",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "54930040JFH8JIQ0I698",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BKX55Q28",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "549300D42GMIQDGY0Y85",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BLCHJB90",
+   "gleif_candidate_lei": "6354005DAVWC6RVTCO47",
+   "firds_candidate_lei": "635400VIPQSO36S5N478",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BLR6Q544",
+   "gleif_candidate_lei": "6354005DAVWC6RVTCO47",
+   "firds_candidate_lei": "635400MFSOFCJPCCOO16",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BM8QS095",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "549300G58ZVCEGHEKR17",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BMC38736",
+   "gleif_candidate_lei": "635400BRTVJRP8KWVW82",
+   "firds_candidate_lei": "2549005YADH8Q7K3ON79",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BMDKNW35",
+   "gleif_candidate_lei": "635400MS3JWKKMQUOK57",
+   "firds_candidate_lei": "254900SAPLUPPLDEY637",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "IE00BMH5Y327",
+   "gleif_candidate_lei": "6354005DAVWC6RVTCO47",
+   "firds_candidate_lei": "635400HZFAFMENBF3U74",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BNGJJT35",
+   "gleif_candidate_lei": "635400KWMLZRXQLEWW81",
+   "firds_candidate_lei": "5493000CST8GZ6N64664",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BNRQM384",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "549300K0QESBJ8VZP405",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BP3QZ601",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300JYU88HR0UW6N22",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BP3QZ825",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300WHO2N3L45QIZ60",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BP3QZB59",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300QDVIIRJNHLD130",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BPRCH686",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "6354008YFMQNVLRNQE41",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BQ70R696",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400KSJZFTYFE9BC76",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BQQP9F84",
+   "gleif_candidate_lei": "635400BRTVJRP8KWVW82",
+   "firds_candidate_lei": "549300SOSNCUUE5M4Y22",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BQT3WG13",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300WPWJ4OL6RFLW59",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BRKWGL70",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400KZRKKKNVCJXD85",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BSPLC298",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300J0KOE9QHURM095",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BSPLC413",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300T67LOB0J64E277",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BWBXM500",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300KKXVXGQQ35IT76",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BWBXM948",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300Z4W5AWP64X0Q67",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYM8JD58",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400SWK8CY1MAZS296",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYPLS672",
+   "gleif_candidate_lei": "213800HPABKMZWEIP107",
+   "firds_candidate_lei": "213800ZSPQ9TKEKVEN40",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYTRR756",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300F4WHZX5KL3S854",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYTRR863",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300TYLBMW8U446M50",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYTRR970",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "5493006UXXIM70VS6W90",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYTRRB94",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300A3B6MOV0TTWB28",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYTRRC02",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300CKJPXFF2JMXQ22",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYTRRD19",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "5493002PL0EN6HYJTA34",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYTRRH56",
+   "gleif_candidate_lei": "5493001O1CLOD0EKP859",
+   "firds_candidate_lei": "549300H4JVXZTPJNBO63",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYVJRP78",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300HO4U1CHS2KDY84",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYVJRR92",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300KGWF4HEQR2MF81",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYWQWR46",
+   "gleif_candidate_lei": "635400MS3JWKKMQUOK57",
+   "firds_candidate_lei": "6354004UKGUQNCOZOU60",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "IE00BYX2JD69",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300L0WCO1LS1X2138",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYX8XC17",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "54930064G0JL4KA5LK09",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYXG2H39",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300UWG42C3CRLBS47",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYXVGX24",
+   "gleif_candidate_lei": "254900YTPQUQOLBKW647",
+   "firds_candidate_lei": "6354005OXQODO6HO4K27",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYXVGZ48",
+   "gleif_candidate_lei": "254900YTPQUQOLBKW647",
+   "firds_candidate_lei": "635400WZZCFHXJCBJ802",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYXYX521",
+   "gleif_candidate_lei": "635400WICCMLCFRO5X42",
+   "firds_candidate_lei": "635400DCTMREWFBQMW43",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYY18K23",
+   "gleif_candidate_lei": "6354006NLLBJZUTGL918",
+   "firds_candidate_lei": "635400RFZHF9NUMDQZ75",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYYHSM20",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "549300EB0GSLQG6E2Q53",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYYHSQ67",
+   "gleif_candidate_lei": "549300F37ANJ4RAIPT18",
+   "firds_candidate_lei": "549300SFO7MVV1V36V77",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BYYR0489",
+   "gleif_candidate_lei": "549300PZLRJB7M8H1057",
+   "firds_candidate_lei": "549300RMXDI6J4QPDC39",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BZ163G84",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "5493003DQ7BNSXL9T834",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BZ163K21",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "549300Q89FEWH9ZOOV25",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BZ163L38",
+   "gleif_candidate_lei": "549300SMY5FJN8ZOIC50",
+   "firds_candidate_lei": "5493009ZXBN7UTZPX408",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BZ56RD98",
+   "gleif_candidate_lei": "5493003W2LPY6BANN753",
+   "firds_candidate_lei": "5493002VL3BV2NJ26843",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BZ56RG20",
+   "gleif_candidate_lei": "5493003W2LPY6BANN753",
+   "firds_candidate_lei": "5493002VL3BV2NJ26843",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "IE00BZCQB185",
+   "gleif_candidate_lei": "549300ZP07LMR36K1T02",
+   "firds_candidate_lei": "549300QTPN06GQ0EC246",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "JP3862400003",
+   "gleif_candidate_lei": "353800HGULFYHWKUF663",
+   "firds_candidate_lei": "529900CDR9E94BCM6294",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "NL0000852531",
+   "gleif_candidate_lei": "7245002BE1N4B6QWBA36",
+   "firds_candidate_lei": "724500IGR5FBK0RLZI29",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "NL0010408704",
+   "gleif_candidate_lei": "7245008X4XA5E9I1C615",
+   "firds_candidate_lei": "254900HV64JOK6WXSM03",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "NL0011683594",
+   "gleif_candidate_lei": "7245008X4XA5E9I1C615",
+   "firds_candidate_lei": "254900GQYEXN18KU7O94",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "NO0013215509",
+   "gleif_candidate_lei": "25490060QP00JNCJJY59",
+   "firds_candidate_lei": "254900TYMSC94RS33U73",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "NO0013387860",
+   "gleif_candidate_lei": "549300B6RHQICWQ2OB93",
+   "firds_candidate_lei": "254900QBKK4WBSO3GE51",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "TREMGTI00012",
+   "gleif_candidate_lei": "789000L1JHPL1R9B2J15",
+   "firds_candidate_lei": "5493002IOWNT1QZMAA74",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US0207641061",
+   "gleif_candidate_lei": "549300C9E158C3V6PT51",
+   "firds_candidate_lei": "254900VEBGZO2PY8R678",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US03938LBC72",
+   "gleif_candidate_lei": "549300MP4YSRSQ39ZG33",
+   "firds_candidate_lei": "2EULGUTUI56JI9SAL165",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US03938LBF04",
+   "gleif_candidate_lei": "549300MP4YSRSQ39ZG33",
+   "firds_candidate_lei": "2EULGUTUI56JI9SAL165",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US0494681010",
+   "gleif_candidate_lei": "549300AGBII4MWBVJY22",
+   "firds_candidate_lei": "549300V7ZY5P02D2MY38",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US06406RAB33",
+   "gleif_candidate_lei": "54930067A504FBYASH16",
+   "firds_candidate_lei": "WFLLPEPC7FZXENRZV188",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US06406RAD98",
+   "gleif_candidate_lei": "54930067A504FBYASH16",
+   "firds_candidate_lei": "WFLLPEPC7FZXENRZV188",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US06406RBL06",
+   "gleif_candidate_lei": "54930067A504FBYASH16",
+   "firds_candidate_lei": "WFLLPEPC7FZXENRZV188",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US06406RBV87",
+   "gleif_candidate_lei": "54930067A504FBYASH16",
+   "firds_candidate_lei": "WFLLPEPC7FZXENRZV188",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US06406RCB15",
+   "gleif_candidate_lei": "54930067A504FBYASH16",
+   "firds_candidate_lei": "WFLLPEPC7FZXENRZV188",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US0889291045",
+   "gleif_candidate_lei": "TF1LXM1YNB81WKUH5G19",
+   "firds_candidate_lei": "2549001IGRCG4F0RLD36",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US11040G1031",
+   "gleif_candidate_lei": "5OR64DV4VUQ8NW3R8C06",
+   "firds_candidate_lei": "5493005Q24EN3UC1PV68",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US111021AE12",
+   "gleif_candidate_lei": "213800LRO7NS5CYQMN21",
+   "firds_candidate_lei": "549300OWFMSO9NYV4H90",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE",
+    "NULL"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US124857AR43",
+   "gleif_candidate_lei": "5KYC8KF17ROCY24M3H09",
+   "firds_candidate_lei": "529900B6VAJG54Y9QF02",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US1778351056",
+   "gleif_candidate_lei": "549300KJZ82173UB3I21",
+   "firds_candidate_lei": "213800R54EFFINMY1P02",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US200340AW72",
+   "gleif_candidate_lei": "I9Q57JVPWHHZ3ZGBW498",
+   "firds_candidate_lei": "254900QBKK4WBSO3GE51",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US21874A1060",
+   "gleif_candidate_lei": "5299003RGB2LAZ65RK73",
+   "firds_candidate_lei": "549300NY2WTA02KF7L12",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US2244411052",
+   "gleif_candidate_lei": "549300X1RO9ID7AUCA83",
+   "firds_candidate_lei": "549300EXNPSXEWUD3N21",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US251526CT41",
+   "gleif_candidate_lei": "529900HNOAA1KXQJUQ27",
+   "firds_candidate_lei": "7LTWFZYICNSX8D621K86",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US251526CV96",
+   "gleif_candidate_lei": "529900HNOAA1KXQJUQ27",
+   "firds_candidate_lei": "7LTWFZYICNSX8D621K86",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US251526CW79",
+   "gleif_candidate_lei": "529900HNOAA1KXQJUQ27",
+   "firds_candidate_lei": "7LTWFZYICNSX8D621K86",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US251526DB24",
+   "gleif_candidate_lei": "529900HNOAA1KXQJUQ27",
+   "firds_candidate_lei": "7LTWFZYICNSX8D621K86",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US25659T1079",
+   "gleif_candidate_lei": "549300X04FB2QPCJ5J24",
+   "firds_candidate_lei": "5493003RN4N4ACTUEC28",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US3133XGAY07",
+   "gleif_candidate_lei": "QSI3ZLDNZWB2G3888J43",
+   "firds_candidate_lei": "2549001DPIFGXC1TOL40",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US369604BW26",
+   "gleif_candidate_lei": "3C7474T6CDKPR9K6YT90",
+   "firds_candidate_lei": "391200Z7ZWISADXEGZ47",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US42250P1030",
+   "gleif_candidate_lei": "254900M6MTMZM0I22L81",
+   "firds_candidate_lei": "PZ9HF5U52KPF0MH0QN75",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US4330001060",
+   "gleif_candidate_lei": "549300ZQ4ZUYSAAX6P59",
+   "firds_candidate_lei": "254900V041EIVTSB6D58",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US44916Y1064",
+   "gleif_candidate_lei": "5493002WX622LZQC4F93",
+   "firds_candidate_lei": "98450073FF7E1B63N260",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US44952J1043",
+   "gleif_candidate_lei": "549300WN2AGOX1011V72",
+   "firds_candidate_lei": "5493001KJTIIGC8Y1R12",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US45818QAD16",
+   "gleif_candidate_lei": "VKU1UKDS9E7LYLMACP54",
+   "firds_candidate_lei": "254900QBKK4WBSO3GE51",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US46137V1008",
+   "gleif_candidate_lei": "QPT4TMG79RF3UWNU0R52",
+   "firds_candidate_lei": "549300OLLMBPCCISBP98",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US46137V2741",
+   "gleif_candidate_lei": "QPT4TMG79RF3UWNU0R52",
+   "firds_candidate_lei": "549300D0XY6OLMKRM650",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US46137V3574",
+   "gleif_candidate_lei": "QPT4TMG79RF3UWNU0R52",
+   "firds_candidate_lei": "549300F8VBQFIX481R47",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_SUBFUND_OF"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US48251W1045",
+   "gleif_candidate_lei": "549300JOHU21WRN2Z451",
+   "firds_candidate_lei": "54930013V5I303TF9571",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US49446R1095",
+   "gleif_candidate_lei": "549300EA7I6T15IBYS12",
+   "firds_candidate_lei": "254900ARY41P4V1JL861",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US5544891048",
+   "gleif_candidate_lei": "254900KTVBRYJCQU2J23",
+   "firds_candidate_lei": "213800R54EFFINMY1P02",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US66405S1006",
+   "gleif_candidate_lei": "549300F0LV9TSW34E306",
+   "firds_candidate_lei": "391200OUOEWDQSEJ0Y74",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US69932A2042",
+   "gleif_candidate_lei": "5KYC8KF17ROCY24M3H09",
+   "firds_candidate_lei": "529900B6VAJG54Y9QF02",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US709599BS26",
+   "gleif_candidate_lei": "549300ZX07JYMI8GHQ39",
+   "firds_candidate_lei": "254900QBKK4WBSO3GE51",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US74965L1017",
+   "gleif_candidate_lei": "549300RX5I8Z6I6LDZ74",
+   "firds_candidate_lei": "213800R54EFFINMY1P02",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US7731211089",
+   "gleif_candidate_lei": "254900B4DEYFZJ980A14",
+   "firds_candidate_lei": "391200OUOEWDQSEJ0Y74",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US78442P1066",
+   "gleif_candidate_lei": "54930067J0ZNOEBRW338",
+   "firds_candidate_lei": "91HLU2VPP7Q03WTUCB02",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US8200144058",
+   "gleif_candidate_lei": "529900LTQPOEVNPEL612",
+   "firds_candidate_lei": "391200OUOEWDQSEJ0Y74",
+   "resolved_lei": null,
+   "context_kind": "entity_metadata_difference",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US86562M2098",
+   "gleif_candidate_lei": "5U0XI89JRFVHWIBS4F54",
+   "firds_candidate_lei": "35380028MYWPB6AUO129",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US86562MCN83",
+   "gleif_candidate_lei": "5U0XI89JRFVHWIBS4F54",
+   "firds_candidate_lei": "35380028MYWPB6AUO129",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US913017CY37",
+   "gleif_candidate_lei": "549300GUSOAN8YCR8P16",
+   "firds_candidate_lei": "I07WOS4YJ0N7YRFE7309",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US92553PAP71",
+   "gleif_candidate_lei": "5KYC8KF17ROCY24M3H09",
+   "firds_candidate_lei": "529900B6VAJG54Y9QF02",
+   "resolved_lei": null,
+   "context_kind": "no_direct_gleif_relation",
+   "relationship_types": [],
+   "relationship_statuses": [],
+   "sources": []
+  },
+  {
+   "isin": "US95040Q1040",
+   "gleif_candidate_lei": "T6IZ0MBEG5ACZDTR7D06",
+   "firds_candidate_lei": "254900F33BIAR82QTA19",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "US95058W1009",
+   "gleif_candidate_lei": "549300PQTT267ME8D359",
+   "firds_candidate_lei": "529900M0JIUCMWVKHG76",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY",
+    "IS_ULTIMATELY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "ACTIVE"
+   ],
+   "sources": [
+    "evidence_table",
+    "raw_artifact"
+   ]
+  },
+  {
+   "isin": "USP98088AA83",
+   "gleif_candidate_lei": "LXVM6T3LO7QIZ8LUZ688",
+   "firds_candidate_lei": "635400TDXGDD6FQOI583",
+   "resolved_lei": null,
+   "context_kind": "direct_gleif_relation",
+   "relationship_types": [
+    "IS_DIRECTLY_CONSOLIDATED_BY"
+   ],
+   "relationship_statuses": [
+    "NULL"
+   ],
+   "sources": [
+    "raw_artifact"
+   ]
+  }
+ ]
+}

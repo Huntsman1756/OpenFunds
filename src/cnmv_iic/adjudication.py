@@ -41,7 +41,7 @@ from cnmv_iic.domain import (
     InstrumentFamilyState,
     SecurityResolution,
 )
-from cnmv_iic.errors import NotFoundError
+from cnmv_iic.errors import NotFoundError, ParseError
 
 ADJUDICATION_VERSION = "1"
 
@@ -109,6 +109,30 @@ def discover_bundle(dataset_root: Path | str) -> EvidenceBundle:
         raise NotFoundError(
             f"no provider evidence manifests under {root / 'manifests'} "
             f"— nothing to adjudicate")
+
+    # fail-closed: a manifest referencing a partition that no longer
+    # exists is a broken bundle — never adjudicate it into silent
+    # no_match rows
+    required = {
+        "gleif_isin": ("resolution_observations", GLEIF_PROVIDER,
+                       "snapshot"),
+        "gleif_golden": ("legal_entities", "gleif", "snapshot"),
+        "esma_firds": ("resolution_observations", FIRDS_PROVIDER,
+                       "snapshot"),
+        "openfigi": ("instrument_observations", OPENFIGI_PROVIDER,
+                     "retrieval"),
+    }
+    for fam, (table, provider, key) in required.items():
+        date = parts.get(fam, (None, ""))[0]
+        if date is None:
+            continue
+        if not (root / table / f"provider={provider}"
+                / f"{key}={date}").exists():
+            raise NotFoundError(
+                f"broken evidence bundle: manifest claims "
+                f"{fam}@{date} but {table}/provider={provider}/"
+                f"{key}={date} is missing — restore the partition or "
+                f"re-ingest, never adjudicate against absent evidence")
 
     ids = tuple(sorted(eid for _, eid in parts.values()))
     return EvidenceBundle(
@@ -434,6 +458,15 @@ def adjudicate(
             adjudication_version=version,
             temporal_semantics=TEMPORAL_SEMANTICS_ADJ,
         ))
+
+    # conservation invariant — every universe ISIN produces exactly
+    # one verdict; a violation means the derivation itself is broken
+    if len(resolutions) != len(universe) or {
+            r.isin for r in resolutions} != set(universe):
+        raise ParseError(
+            f"conservation violated: {len(resolutions)} verdicts for "
+            f"{len(universe)} universe ISINs — refusing to publish a "
+            f"partial adjudication")
 
     # conflict context — loaded evidence first, then bounded raw pass
     conflict_leis = {lei for pair in conflict_pairs.values() for lei in pair}

@@ -2084,9 +2084,23 @@ def security_resolution(
     for s in sec:
         if s.get("conflict_context_json"):
             s["conflict_context"] = json.loads(s["conflict_context_json"])
+        # derived, documented strength tier — G8 must not infer it
+        # from state names alone
+        s["evidence_strength"] = _EVIDENCE_STRENGTH.get(
+            s["state"], "unresolved")
     return {"isin": isin, "version": v, "bundle": b,
             "security": sec[0] if sec else None,
             "instrument_family": fam[0] if fam else None}
+
+
+_EVIDENCE_STRENGTH = {
+    "corroborated": "corroborated",
+    "gleif_only": "single_source",
+    "firds_only": "single_source",
+    "conflict": "unresolved",
+    "multiple_candidates": "unresolved",
+    "no_authoritative_match": "unresolved",
+}
 
 
 def resolution_coverage(
@@ -2112,8 +2126,24 @@ def resolution_coverage(
         "SELECT state, COUNT(*) AS n FROM instrument_family_resolution "
         "WHERE version = ? AND bundle = ? GROUP BY state "
         "ORDER BY n DESC", [v, b]))
-    return {"version": v, "bundle": b,
-            "security_states": sec, "family_states": fam}
+    by_period = []
+    if "positions" in tables:
+        by_period = _rows(con.execute(
+            "SELECT p.period, s.state, COUNT(DISTINCT s.isin) AS n "
+            "FROM security_resolution s JOIN positions p "
+            "ON s.isin = p.isin_raw AND p.isin_state = 'valid' "
+            "WHERE s.version = ? AND s.bundle = ? "
+            "GROUP BY p.period, s.state ORDER BY p.period, n DESC",
+            [v, b]))
+    return {
+        "version": v, "bundle": b,
+        "security_states": sec, "family_states": fam,
+        "by_period": by_period,
+        "temporal_semantics":
+            "current_enrichment_of_historical_security — provider "
+            "evidence retrieved now says nothing about what was "
+            "knowable at each holding period",
+    }
 
 
 def resolution_conflicts(

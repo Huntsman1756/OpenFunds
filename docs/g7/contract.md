@@ -589,3 +589,128 @@ non-verdict) plus a separate instrument-family verdict. Next: G7-F
 hardening, then G8 exposure engine — which must filter by resolution
 strength (corroborated vs single-source) and never aggregate
 conflicts silently.
+
+## 12. G7-F — integrated hardening (release gate, no new functionality)
+
+### Destructive rebuild — source artifacts, not a cache
+
+All G7 derived tables deleted in the live dataset, rebuilt exclusively
+from pinned raw artifacts with the network hard-blocked
+(``CNMV_IIC_OFFLINE=1`` + ``socket.connect`` raises — zero connect
+attempts recorded):
+
+```text
+gleif_anna_isin_lei  3258f6627a36…  identical after rebuild
+gleif_golden         d4e9a02744c5…  identical
+esma_firds           da1806feb763…  identical (16 raw FULINS zips)
+openfigi             de3568e70a0a…  identical (2,566 raw batches,
+                                     jobs_missing=0, campaign_complete)
+bundle               dfe244f54ad1…  identical
+securities           25,660 — states byte-identical:
+  corroborated 7,028 · firds_only 7,194 · gleif_only 1,045
+  conflict 271 · multiple 0 · no_authoritative_match 10,122
+adjudication         6a0d0f9435b5… — reproduced on independent re-run
+                     (second run exported:false, same fingerprint)
+```
+
+Conservation is now enforced in code: ``adjudicate`` raises and refuses
+publication unless every universe ISIN produces exactly one verdict.
+
+### Hardening fixes landed
+
+- ``read_batch`` re-verifies stored integrity: request/response
+  sha256, batch_id vs filename, meta.isins vs request jobs, response
+  cardinality, required HTTP metadata, missing/duplicated zip members.
+  Previously a tampered payload preserving cardinality passed silently.
+- ``discover_bundle`` verifies every manifest-referenced partition
+  exists — a manifest claiming deleted evidence raises ``NotFoundError``
+  instead of adjudicating against absent data.
+- OpenFIGI campaign manifest exposes ``jobs_missing`` /
+  ``campaign_complete`` — an incomplete campaign is machine-visible,
+  never silently treated as complete.
+- ``CNMV_IIC_OFFLINE`` env blocks all OpenFIGI network calls in
+  ``UrllibPoster``.
+- ``portfolio-diff --previous-loaded`` explicit alias (``--previous``
+  retained); help states adjacent-loaded-snapshot semantics and
+  fail-closed behaviour for un-loaded measured publications.
+- ``security_resolution`` rows expose derived ``evidence_strength``
+  (corroborated | single_source | unresolved) — G8 never infers
+  strength from state names.
+- ``resolution-coverage`` exposes ``by_period`` with an explicit
+  temporal-semantics warning (current enrichment is not as-of
+  historical identity).
+
+### Automated gates (tests/test_hardening.py, 31 tests)
+
+- **truth table** — full (gleif x firds) outcome closure, incl.
+  multiple-candidate dominance and no-evidence rows
+- **broken bundle** — deleted evidence partition -> NotFoundError
+- **OpenFIGI independence** — removing all instrument evidence leaves
+  every issuer verdict byte-identical
+- **Level-2 independence** — no GLEIF Level-2 -> same states, context
+  degrades to ``unknown`` (explains, never resolves)
+- **partial campaign** — missing batch -> provider_error +
+  ``jobs_missing>0`` + ``campaign_complete:false``; resume re-requests
+  exactly the missing batch (0 extra calls)
+- **batch corruption** — truncated/not-zip, sha256 tamper, cardinality
+- **offline** — CNMV_IIC_OFFLINE raises on any post
+- **multi-part partitions**, conservation, candidate-set invariance
+- **conflict goldens** — ``docs/g7/conflict-goldens.json``: all 271
+  live conflicts frozen (isin, both candidates, NULL resolved_lei,
+  kind, verbatim relationship types/status/sources); test asserts the
+  required semantic classes are all represented
+
+### Frozen CLI JSON contracts
+
+``cnmv-iic security|resolution <isin> --json``:
+
+```json
+{
+  "isin": "ES0305668016",
+  "security": {
+    "state": "conflict",
+    "resolved_lei": null,
+    "evidence_strength": "unresolved",
+    "gleif_candidate_lei": "9598001VRW27FQFURC47",
+    "firds_candidate_lei": "9598003CE9SK3XCGKX82",
+    "conflict_context": {"kind": "direct_gleif_relation", ...},
+    "evidence_bundle_fingerprint": "dfe244f5…",
+    "adjudication_version": "1",
+    "temporal_semantics": "derived_adjudication_over_provider_evidence"
+  },
+  "instrument_family": {"state": "no_share_class_figi", ...},
+  "bundle": "dfe244f54ad119d4"
+}
+```
+
+``state`` enum: corroborated | gleif_only | firds_only | conflict |
+multiple_candidates | no_authoritative_match.
+``evidence_strength`` enum: corroborated | single_source | unresolved.
+``resolution-coverage``: state counts + ``by_period`` +
+temporal-semantics warning. ``resolution-conflicts``: conflict rows
+with parsed context. Field names and enums above are frozen for G8.
+
+### G7-F gate matrix — PASS
+
+```text
+fresh rebuild                    PASS   destructive rebuild, same fps
+offline rebuild                  PASS   zero socket connects
+artifact corruption              PASS   read_batch fail-closed +
+                                        provider ingest gates (existing)
+partial provider campaigns       PASS   jobs_missing, resume-only-missing
+adjudication truth table         PASS   full outcome closure
+conflict goldens                 PASS   271 frozen, all classes present
+provider independence            PASS   ofi/level-2 removal invariants
+cross-platform determinism       PASS   canonical row fingerprint,
+                                        ruff+mypy+tests on Windows+CI Linux
+append-only/version semantics    PASS   exported:false idempotency,
+                                        new evidence = new partition
+CLI JSON contracts               PASS   frozen above
+license/BOM audit                PASS   licensing.md
+network isolation                PASS   CNMV_IIC_OFFLINE + socket guard
+G1–G6 regression fingerprints    PASS   unchanged (positions/funds/etc
+                                        untouched by rebuild)
+G7-A–E regression fingerprints   PASS   3258f662 d4e9a027 da1806fe
+                                        de3568e7 dfe244f5 identical
+```
+

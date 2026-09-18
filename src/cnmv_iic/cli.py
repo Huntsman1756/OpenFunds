@@ -838,10 +838,13 @@ def portfolio_diff_cmd(
     as_of: Annotated[str | None, typer.Option(
         help="later snapshot YYYY-MM (with --previous)")] = None,
     previous: Annotated[bool, typer.Option(
-        "--previous",
-        help="compare to the owner's previous snapshot; fails with "
-             "previous_published_snapshot_not_loaded if the measured "
-             "published snapshot is not in the dataset")] = False,
+        "--previous-loaded", "--previous",
+        help="compare to the owner's previous LOADED snapshot "
+             "(publication_cadence=adjacent_available_snapshots); "
+             "fails with previous_published_snapshot_not_loaded if a "
+             "measured published snapshot is not in the dataset. "
+             "--previous is an alias — a future flag may instead "
+             "auto-resolve the previous PUBLISHED snapshot")] = False,
     data_dir: Annotated[Path | None, typer.Option()] = None,
     json_out: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:

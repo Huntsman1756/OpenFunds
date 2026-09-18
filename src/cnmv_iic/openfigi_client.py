@@ -25,6 +25,7 @@ semantics.
 from __future__ import annotations
 
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -103,6 +104,11 @@ class UrllibPoster:
 
     def post(self, url: str, payload: bytes,
              headers: dict[str, str]) -> HttpResult:
+        if os.environ.get("CNMV_IIC_OFFLINE"):
+            raise AcquisitionError(
+                "CNMV_IIC_OFFLINE is set — network requests are "
+                "forbidden; rebuild derived data from stored raw "
+                "artifacts instead")
         if not url.startswith("https://api.openfigi.com/"):
             raise AcquisitionError(
                 f"URL outside OpenFIGI origin rejected: {url}")
@@ -284,14 +290,46 @@ class StoredBatch:
 
 
 def read_batch(path: Path | str) -> StoredBatch:
+    """Re-verify a stored batch artifact — the evidence is only
+    trustworthy if every byte matches what was pinned at write time.
+
+    Fail-closed on: truncated/not-a-zip, missing or duplicated members,
+    batch_id mismatch, request/response sha256 mismatch, reordered or
+    altered jobs vs meta.isins, response cardinality mismatch, and
+    missing HTTP metadata (status, retrieved_at)."""
     path = Path(path)
-    with zipfile.ZipFile(path) as zf:
-        meta = json.loads(zf.read("meta.json"))
-        request = json.loads(zf.read("request.json"))
-        response = json.loads(zf.read("response.json"))
-    if meta["batch_id"] != path.stem:
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = zf.namelist()
+            if len(names) != len(set(names)):
+                raise ParseError(
+                    f"batch artifact {path.name}: duplicated member")
+            raw_request = zf.read("request.json")
+            raw_response = zf.read("response.json")
+            raw_meta = zf.read("meta.json")
+    except KeyError as e:
+        raise ParseError(
+            f"batch artifact {path.name}: missing member {e}") from e
+    meta = json.loads(raw_meta)
+    request = json.loads(raw_request)
+    response = json.loads(raw_response)
+    if meta.get("batch_id") != path.stem:
         raise ParseError(
             f"batch artifact {path.name}: meta batch_id mismatch")
+    if meta.get("request_sha256") != sha256(raw_request).hexdigest():
+        raise ParseError(
+            f"batch artifact {path.name}: request sha256 mismatch")
+    if meta.get("response_sha256") != sha256(raw_response).hexdigest():
+        raise ParseError(
+            f"batch artifact {path.name}: response sha256 mismatch")
+    if meta.get("http_status") is None or meta.get("retrieved_at") is None:
+        raise ParseError(
+            f"batch artifact {path.name}: missing HTTP metadata")
+    if (isinstance(meta.get("isins"), list)
+            and meta["isins"] != [j.get("idValue") for j in request]):
+        raise ParseError(
+            f"batch artifact {path.name}: "
+            "request jobs do not match meta.isins")
     if not isinstance(response, list) or len(response) != len(request):
         raise ParseError(
             f"batch artifact {path.name}: "

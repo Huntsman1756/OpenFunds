@@ -608,6 +608,12 @@ def ingest_openfigi(
     universe = _corpus_isin_universe(dataset_root)
     observations, candidates = openfigi_adapter.build_observations(
         universe, batches, campaign=campaign)
+    # completeness gate: jobs_missing = universe ISINs with NO stored
+    # positional response (batch absent/failed) — an incomplete
+    # campaign is machine-visible, never silently partial
+    jobs_missing = sum(
+        1 for o in observations
+        if o.state.value == "provider_error" and not o.batch_id)
     manifest = write_instrument_evidence(
         dataset_root,
         provider=openfigi_adapter.PROVIDER,
@@ -618,6 +624,8 @@ def ingest_openfigi(
             "batches": len(batches),
             "batch_ids": sorted(b.batch_id for b in batches),
             "provider_dataset": openfigi_adapter.PROVIDER_DATASET,
+            "jobs_missing": jobs_missing,
+            "campaign_complete": jobs_missing == 0,
         },
     )
     return OpenFigiIngestResult(
