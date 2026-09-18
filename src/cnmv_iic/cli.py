@@ -27,6 +27,9 @@ from cnmv_iic.query import (
     official_returns,
     patrimony_allocation,
     patrimony_reconciliation,
+    portfolio_diff,
+    portfolio_history,
+    position_history,
     quarterly_fees,
     quarterly_metrics,
     share_class_info,
@@ -468,6 +471,82 @@ def derivatives(
     root = data_dir or _data_dir()
     meta, rows = _run(lambda: derivative_operations(
         root / "dataset", identifier, as_of))
+    _emit({"resolution": meta, "compartments_rows": rows}, json_out)
+
+
+@app.command(name="portfolio-diff")
+def portfolio_diff_cmd(
+    identifier: Annotated[str, typer.Argument(
+        help="Fund/compartment key or share-class ISIN")],
+    from_period: Annotated[str | None, typer.Argument(
+        help="earlier snapshot YYYY-MM")] = None,
+    to_period: Annotated[str | None, typer.Argument(
+        help="later snapshot YYYY-MM")] = None,
+    as_of: Annotated[str | None, typer.Option(
+        help="later snapshot YYYY-MM (with --previous)")] = None,
+    previous: Annotated[bool, typer.Option(
+        "--previous",
+        help="compare to the owner's previous published snapshot"
+             " — NOT previous quarter")] = False,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Compare two published FONDCART snapshots — a change ledger.
+
+    "added"/"removed" describe snapshot presence, NEVER purchases or
+    sales. Ambiguous identifier groups are reported unresolved, never
+    paired by heuristic.
+    """
+    root = data_dir or _data_dir()
+    if as_of is not None:
+        if not previous:
+            raise CnmvIicError("--as-of requires --previous")
+        if from_period is not None or to_period is not None:
+            raise CnmvIicError(
+                "positional periods and --as-of are mutually exclusive")
+        to, frm, prev = as_of, None, True
+    else:
+        if previous:
+            raise CnmvIicError("--previous requires --as-of")
+        if from_period is None or to_period is None:
+            raise CnmvIicError(
+                "usage: portfolio-diff IDENT FROM TO  or  "
+                "portfolio-diff IDENT --as-of YYYY-MM --previous")
+        to, frm, prev = to_period, from_period, False
+    meta, rows = _run(lambda: portfolio_diff(
+        root / "dataset", identifier, frm, to, previous=prev))
+    _emit({"resolution": meta, "compartments_rows": rows}, json_out)
+
+
+@app.command(name="position-history")
+def position_history_cmd(
+    identifier: Annotated[str, typer.Argument(
+        help="Fund/compartment key or share-class ISIN")],
+    isin: Annotated[str, typer.Argument(
+        help="position identifier (verbatim ISIN)")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Reported market-value history of an identifier — REPORTED
+    values, never a buy/sell history."""
+    root = data_dir or _data_dir()
+    meta, rows = _run(lambda: position_history(
+        root / "dataset", identifier, isin))
+    _emit({"resolution": meta, "compartments_rows": rows}, json_out)
+
+
+@app.command(name="portfolio-history")
+def portfolio_history_cmd(
+    identifier: Annotated[str, typer.Argument(
+        help="Fund/compartment key or share-class ISIN")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Per-snapshot reported position counts and totals — observed
+    aggregates only."""
+    root = data_dir or _data_dir()
+    meta, rows = _run(lambda: portfolio_history(
+        root / "dataset", identifier))
     _emit({"resolution": meta, "compartments_rows": rows}, json_out)
 
 

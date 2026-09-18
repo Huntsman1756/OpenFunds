@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
+from calendar import monthrange
+from collections import Counter
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -1232,6 +1237,597 @@ def patrimony_allocation(
                 "NOT monetary; flow/result decomposition",
         },
     }, out
+
+
+# -- G6: historical portfolio change semantics -------------------------------
+#
+# docs/g6/contract.md — measured identity contract:
+# - ISIN is NOT a row key: 0.6-1.8% of valid rows share an ISIN inside
+#   the same portfolio (repos, lots, same ISIN two roles) — those
+#   groups are ambiguous and never silently paired or summed.
+# - Descriptors churn 18-30% between snapshots — never a match input,
+#   only a change output (source_metadata_changed).
+# - Non-valid ISINs (absent/masked/invalid) match only on unique
+#   byte-identical verbatim signatures — identifier_authority=none.
+# - No transaction verbs: snapshot differences prove state change only.
+
+
+def _valid_period(period: str) -> str:
+    if not re.fullmatch(r"\d{4}-\d{2}", period):
+        raise NotFoundError(f"bad period {period!r} — expected YYYY-MM")
+    return period
+
+
+def _month_end(period: str) -> date:
+    y, m = int(period[:4]), int(period[5:7])
+    return date(y, m, monthrange(y, m)[1])
+
+
+_POS_COLS = (
+    "position_seq, kind, clase_if, descripcion_if, descripcion_valor,"
+    " divisa, reported_market_value, derived_weight, isin_raw,"
+    " isin_state, source_artifact_id, xml_locator"
+)
+
+
+def _owner_positions(
+    con: duckdb.DuckDBPyConnection, owner_key: str,
+    period: str,
+) -> list[dict]:
+    # positions.fund_key IS the compartment key (FundIdentity includes
+    # numero_compartimento — see domain.FundIdentity.key)
+    con.execute(
+        f"SELECT {_POS_COLS} FROM positions"           # noqa: S608
+        " WHERE period = ? AND fund_key = ?"
+        " ORDER BY position_seq",
+        [period, owner_key])
+    return _rows(con)
+
+
+def _pos_sig(r: dict) -> tuple:
+    return (r["kind"], r["clase_if"], r["descripcion_if"],
+            r["descripcion_valor"], r["divisa"])
+
+
+def _pos_out(r: dict) -> dict:
+    return {
+        "position_seq": r["position_seq"],
+        "kind": r["kind"],
+        "clase_if": r["clase_if"],
+        "descripcion_if": r["descripcion_if"],
+        "descripcion_valor": r["descripcion_valor"],
+        "divisa": r["divisa"],
+        "reported_market_value": r["reported_market_value"],
+        "derived_weight": r["derived_weight"],
+        "isin_raw": r["isin_raw"],
+        "isin_state": r["isin_state"],
+        "provenance": {
+            "source_artifact_id": r["source_artifact_id"],
+            "xml_locator": r["xml_locator"],
+        },
+    }
+
+
+_META_FACETS = ("kind", "clase_if", "descripcion_if",
+                "descripcion_valor", "divisa", "isin_raw")
+
+
+def _match_positions(
+    old: list[dict], new: list[dict],
+) -> dict:
+    """Two phases kept rigidly apart: identity matching first, change
+    classification second. Returns matched pairs, added/removed rows
+    and unresolved groups — never fabricates pairings."""
+    old_valid = [r for r in old if r["isin_state"] == "valid"]
+    new_valid = [r for r in new if r["isin_state"] == "valid"]
+    oc, nc = (Counter(r["isin_raw"] for r in x)
+              for x in (old_valid, new_valid))
+
+    pairs: list[tuple[dict, dict, str]] = []
+    added: list[tuple[dict, str]] = []
+    removed: list[tuple[dict, str]] = []
+    unresolved: list[dict] = []
+
+    for isin in sorted(set(oc) | set(nc)):
+        o = [r for r in old_valid if r["isin_raw"] == isin]
+        n = [r for r in new_valid if r["isin_raw"] == isin]
+        if o and n:
+            if len(o) == 1 and len(n) == 1:
+                pairs.append((o[0], n[0], "exact_valid_isin"))
+            else:
+                # ambiguous identifier group — reported, never paired
+                unresolved.append({
+                    "match_state": "unresolved",
+                    "match_basis": "ambiguous_identifier",
+                    "identifier": isin,
+                    "rows_before": len(o),
+                    "rows_after": len(n),
+                    "before_rows": [_pos_out(r) for r in o],
+                    "after_rows": [_pos_out(r) for r in n],
+                    "note": "ISIN duplicated within snapshot — no "
+                            "authoritative row pairing; never summed "
+                            "(a repo leg + the bond itself share ISINs "
+                            "in the source)",
+                })
+        elif n:
+            added += [(r, "authoritative_identifier") for r in n]
+        else:
+            removed += [(r, "authoritative_identifier") for r in o]
+
+    # non-valid rows: only a unique byte-identical verbatim signature
+    # may match — identifier_authority=none either way.
+    old_nv = [r for r in old if r["isin_state"] != "valid"]
+    new_nv = [r for r in new if r["isin_state"] != "valid"]
+    so = Counter(_pos_sig(r) for r in old_nv)
+    sn = Counter(_pos_sig(r) for r in new_nv)
+    used_o: set[int] = set()
+    used_n: set[int] = set()
+    for sig in sorted(set(so) & set(sn), key=repr):
+        if so[sig] == 1 and sn[sig] == 1:
+            ro = next(r for r in old_nv if _pos_sig(r) == sig)
+            rn = next(r for r in new_nv if _pos_sig(r) == sig)
+            pairs.append((ro, rn, "verbatim_signature"))
+            used_o.add(id(ro))
+            used_n.add(id(rn))
+    for r in old_nv:
+        if id(r) not in used_o:
+            removed.append((r, "none"))
+    for r in new_nv:
+        if id(r) not in used_n:
+            added.append((r, "none"))
+
+    return {"pairs": pairs, "added": added,
+            "removed": removed, "unresolved": unresolved}
+
+
+def _classify_change(a: dict, b: dict) -> tuple[str, list[str]]:
+    vm = a["reported_market_value"] != b["reported_market_value"]
+    w = a["derived_weight"] != b["derived_weight"]
+    meta = [f for f in _META_FACETS if a[f] != b[f]]
+    if vm and w:
+        state = "market_value_and_weight_changed"
+    elif vm:
+        state = "market_value_changed"
+    elif w:
+        state = "weight_changed"
+    elif meta:
+        state = "source_metadata_changed"
+    else:
+        state = "unchanged_position"
+    return state, meta
+
+
+def _diff_payload(
+    old: list[dict], new: list[dict],
+) -> dict:
+    m = _match_positions(old, new)
+    changes = []
+    for a, b, basis in m["pairs"]:
+        state, meta = _classify_change(a, b)
+        changes.append({
+            "match_state": ("exact_identifier" if basis
+                            == "exact_valid_isin"
+                            else "exact_source_signature"),
+            "match_basis": basis,
+            "identifier_authority": (
+                "authoritative_identifier" if basis
+                == "exact_valid_isin" else "none"),
+            "identifier": a["isin_raw"] if basis == "exact_valid_isin"
+                          else None,
+            "change": state,
+            "metadata_changed": meta,
+            "market_value": {
+                "before": a["reported_market_value"],
+                "after": b["reported_market_value"],
+                "delta": (b["reported_market_value"]
+                          - a["reported_market_value"]),
+                "state": "observed_delta",
+            },
+            "weight": {
+                "before": a["derived_weight"],
+                "after": b["derived_weight"],
+                "delta": (b["derived_weight"] - a["derived_weight"]),
+                "state": "derived_from_derived",
+            },
+            "before": _pos_out(a),
+            "after": _pos_out(b),
+        })
+    for r, auth in m["added"]:
+        changes.append({
+            "match_state": None, "match_basis": None,
+            "identifier_authority": auth,
+            "identifier": r["isin_raw"] if auth != "none" else None,
+            "change": "added_position", "metadata_changed": [],
+            "market_value": {"before": None,
+                             "after": r["reported_market_value"],
+                             "delta": None, "state": "observed_delta"},
+            "weight": {"before": None, "after": r["derived_weight"],
+                       "delta": None, "state": "derived_from_derived"},
+            "before": None, "after": _pos_out(r),
+        })
+    for r, auth in m["removed"]:
+        changes.append({
+            "match_state": None, "match_basis": None,
+            "identifier_authority": auth,
+            "identifier": r["isin_raw"] if auth != "none" else None,
+            "change": "removed_position", "metadata_changed": [],
+            "market_value": {"before": r["reported_market_value"],
+                             "after": None,
+                             "delta": None, "state": "observed_delta"},
+            "weight": {"before": r["derived_weight"], "after": None,
+                       "delta": None, "state": "derived_from_derived"},
+            "before": _pos_out(r), "after": None,
+        })
+    return {"changes": changes, "unresolved": m["unresolved"]}
+
+
+def _diff_summary(payload: dict, n_old: int, n_new: int) -> dict:
+    changes = payload["changes"]
+    by_change = Counter(c["change"] for c in changes)
+    matched = sum(1 for c in changes
+                  if c["match_state"] is not None)
+    added = by_change.get("added_position", 0)
+    removed = by_change.get("removed_position", 0)
+    un_old = sum(u["rows_before"] for u in payload["unresolved"])
+    un_new = sum(u["rows_after"] for u in payload["unresolved"])
+    return {
+        "counts": {k: by_change.get(k, 0) for k in (
+            "unchanged_position", "market_value_changed",
+            "weight_changed", "market_value_and_weight_changed",
+            "source_metadata_changed", "added_position",
+            "removed_position")} | {"unresolved_groups":
+                                    len(payload["unresolved"])},
+        # conservation: every row accounted for, never forced
+        "conservation": {
+            "old": {"matched": matched, "removed": removed,
+                    "unresolved_rows": un_old,
+                    "total": n_old,
+                    "holds": matched + removed + un_old == n_old},
+            "new": {"matched": matched, "added": added,
+                    "unresolved_rows": un_new,
+                    "total": n_new,
+                    "holds": matched + added + un_new == n_new},
+        },
+    }
+
+
+def _diff_fingerprint(owner_payloads: dict) -> str:
+    canon = json.dumps(
+        owner_payloads, sort_keys=True, default=str,
+        ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(canon.encode()).hexdigest()
+
+
+def _fondcart_periods(
+    con: duckdb.DuckDBPyConnection, owner: str | None = None,
+) -> list[str]:
+    if owner is None:
+        con.execute(
+            "SELECT DISTINCT period FROM positions ORDER BY 1")
+    else:
+        con.execute(
+            "SELECT DISTINCT period FROM positions"
+            " WHERE fund_key = ? ORDER BY 1", [owner])
+    return [r[0] for r in con.fetchall()]
+
+
+def portfolio_diff(
+    root: Path | str, identifier: str,
+    from_period: str | None = None,
+    to_period: str | None = None,
+    *,
+    previous: bool = False,
+) -> tuple[dict, list[dict]]:
+    """Compare two published FONDCART snapshots of each resolved
+    portfolio owner — a change ledger, never inferred transactions.
+
+    Periods are published snapshots, not assumed quarters:
+    ``previous=True`` selects the owner's latest available snapshot
+    strictly before ``to_period`` (``adjacent_available_snapshots``);
+    explicit ``from_period``+``to_period`` = ``explicit_periods``.
+
+    Returns ``(meta, per_owner_rows)``.
+    """
+    if to_period is None:
+        raise NotFoundError(
+            "portfolio-diff requires to_period (or --as-of)")
+    _valid_period(to_period)
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "positions" not in tables:
+        raise NotFoundError(
+            "no FONDCART data in dataset — run `cnmv-iic update` first")
+    cart_periods = set(_fondcart_periods(con))
+    if to_period not in cart_periods:
+        raise NotFoundError(
+            f"no FONDCART data for {to_period} — "
+            "period is not a published snapshot")
+
+    reg_period = _registry_period(con, to_period)
+    if reg_period is not None:
+        resolution = resolve(
+            identifier,
+            share_classes=_share_class_rows(con, reg_period),
+            funds=_fund_owners(con, reg_period))
+        owners = resolution.portfolio_owners
+        if not owners:
+            raise NotFoundError(
+                f"{identifier!r} does not resolve to any compartment:"
+                f" {resolution.kind.value}"
+                + (f" — {resolution.note}" if resolution.note else ""))
+        info = _resolution_info(resolution)
+    elif identifier.count(":") == 2:
+        owners = (identifier,)
+        info = {"requested_identifier": identifier,
+                "resolved_as": ResolutionKind.EXACT_COMPARTMENT.value,
+                "note": "resolved without registry data"}
+    else:
+        raise NotFoundError(
+            f"cannot resolve {identifier!r}: portfolio-diff requires "
+            "a fund/compartment key or share-class ISIN")
+
+    out = []
+    for ck in owners:
+        available = _fondcart_periods(con, ck)
+        if previous:
+            earlier = [p for p in available if p < to_period]
+            if earlier:
+                fp = earlier[-1]
+                cadence = "adjacent_available_snapshots"
+                owner_absent_from = False
+            else:
+                cart_earlier = sorted(p for p in cart_periods
+                                      if p < to_period)
+                if not cart_earlier:
+                    raise NotFoundError(
+                        f"no earlier FONDCART snapshot before "
+                        f"{to_period} for {ck}")
+                fp = cart_earlier[-1]
+                cadence = "adjacent_available_snapshots"
+                owner_absent_from = True
+        else:
+            if from_period is None:
+                raise NotFoundError(
+                    "explicit from_period required unless --previous")
+            fp = _valid_period(from_period)
+            cadence = "explicit_periods"
+            owner_absent_from = fp not in available
+            if fp not in cart_periods:
+                raise NotFoundError(
+                    f"no FONDCART data for {fp} — "
+                    "period is not a published snapshot")
+
+        old = _owner_positions(con, ck, fp)
+        new = _owner_positions(con, ck, to_period)
+        owner_absent_to = to_period not in available
+        if not old and not new and owner_absent_from and owner_absent_to:
+            continue
+
+        payload = _diff_payload(old, new)
+        artifact_from = old[0]["source_artifact_id"] if old else None
+        artifact_to = new[0]["source_artifact_id"] if new else None
+
+        # official PDV context for the later period — parallel
+        # disclosure, never a causal attribution
+        patrimony_ctx = None
+        if "patrimony" in tables:
+            con.execute(
+                "SELECT suscripciones_reembolsos_netos,"
+                " rendimientos_netos, comision_gestion,"
+                " total_patrimonio, codigo_divisa_iic"
+                " FROM patrimony WHERE period = ?"
+                " AND compartment_key = ?", [to_period, ck])
+            rows = _rows(con)
+            if rows:
+                r = rows[0]
+                patrimony_ctx = {
+                    "period": to_period,
+                    "suscripciones_reembolsos_netos_pct":
+                        r["suscripciones_reembolsos_netos"],
+                    "rendimientos_netos_pct": r["rendimientos_netos"],
+                    "comision_gestion_pct": r["comision_gestion"],
+                    "total_patrimonio": r["total_patrimonio"],
+                    "codigo_divisa_iic": r["codigo_divisa_iic"],
+                    "note": "official aggregate context — no causal "
+                            "attribution between flows and individual "
+                            "position changes",
+                }
+
+        out.append({
+            "portfolio_owner": ck,
+            "from_period": fp,
+            "to_period": to_period,
+            "publication_cadence": cadence,
+            "elapsed_days": (_month_end(to_period)
+                             - _month_end(fp)).days,
+            "from_artifact": artifact_from,
+            "to_artifact": artifact_to,
+            "snapshot_presence": {
+                "from": ("owner_absent" if owner_absent_from
+                         else "reported"),
+                "to": ("owner_absent" if owner_absent_to
+                       else "reported"),
+            },
+            "positions": {"old": len(old), "new": len(new)},
+            "summary": _diff_summary(payload, len(old), len(new)),
+            "changes": payload["changes"],
+            "unresolved": payload["unresolved"],
+            "derivatives": {
+                "individual_position_diff": "unavailable",
+                "reason": "no_authoritative_cross_snapshot_identity — "
+                          "FONDDERI instruments are officially "
+                          "non-normalized text (G5)",
+            },
+            "official_patrimony_variation": patrimony_ctx,
+        })
+
+    if not out:
+        raise NotFoundError(
+            f"{identifier!r}: no FONDCART snapshots found for any "
+            "resolved compartment")
+    return info | {
+        "from_period": out[0]["from_period"],
+        "to_period": to_period,
+        "publication_cadence": out[0]["publication_cadence"],
+        "diff_fingerprint": _diff_fingerprint(
+            {o["portfolio_owner"]: o["changes"] for o in out}),
+        "compartments": len(out),
+        "semantics": {
+            "added": "absent from the earlier disclosed snapshot and "
+                     "present in the later one — does NOT imply a "
+                     "purchase",
+            "removed": "present earlier, absent later — does NOT "
+                       "imply a sale",
+            "changed": "reported field values differ — price, FX, "
+                       "flows, corporate actions, reclassification "
+                       "and reporting changes are all possible causes",
+            "weight": "derived_weight is DERIVED (reported VM / "
+                      "portfolio total); weight deltas are "
+                      "derived_from_derived",
+            "unresolved": "ambiguous identifier groups reported "
+                          "unpaired — never summed or heuristic-matched",
+        },
+    }, out
+
+
+def position_history(
+    root: Path | str, identifier: str, isin: str,
+) -> tuple[dict, list[dict]]:
+    """Reported market-value history of one identifier inside a
+    portfolio owner — REPORTED VALUES, not transactions.
+
+    A duplicated ISIN inside a snapshot yields all its rows (the
+    identifier is ambiguous — never collapsed).
+    """
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "positions" not in tables:
+        raise NotFoundError(
+            "no FONDCART data in dataset — run `cnmv-iic update` first")
+    reg_period = _registry_period(con, None)
+    if reg_period is not None:
+        resolution = resolve(
+            identifier,
+            share_classes=_share_class_rows(con, reg_period),
+            funds=_fund_owners(con, reg_period))
+        owners = resolution.portfolio_owners
+        if not owners:
+            raise NotFoundError(
+                f"{identifier!r} does not resolve to any compartment:"
+                f" {resolution.kind.value}"
+                + (f" — {resolution.note}" if resolution.note else ""))
+        info = _resolution_info(resolution)
+    elif identifier.count(":") == 2:
+        owners = (identifier,)
+        info = {"requested_identifier": identifier,
+                "resolved_as": ResolutionKind.EXACT_COMPARTMENT.value,
+                "note": "resolved without registry data"}
+    else:
+        raise NotFoundError(
+            f"cannot resolve {identifier!r}: position-history "
+            "requires a fund/compartment key or share-class ISIN")
+
+    out = []
+    for ck in owners:
+        con.execute(
+            f"SELECT period, {_POS_COLS} FROM positions"   # noqa: S608
+            " WHERE fund_key = ? AND isin_raw = ?"
+            " ORDER BY period, position_seq", [ck, isin])
+        obs = _rows(con)
+        if obs:
+            out.append({
+                "portfolio_owner": ck,
+                "identifier": isin,
+                "observations": [{
+                    "period": r["period"],
+                    "position_seq": r["position_seq"],
+                    "reported_market_value": r["reported_market_value"],
+                    "derived_weight": r["derived_weight"],
+                    "weight_state": "derived",
+                    "descripcion_valor": r["descripcion_valor"],
+                    "descripcion_if": r["descripcion_if"],
+                    "divisa": r["divisa"],
+                    "isin_state": r["isin_state"],
+                    "provenance": {
+                        "source_artifact_id": r["source_artifact_id"],
+                        "xml_locator": r["xml_locator"],
+                    },
+                    "note": ("duplicated identifier in snapshot — "
+                             "rows not collapsed"
+                             if sum(1 for x in obs
+                                    if x["period"] == r["period"]) > 1
+                             else None),
+                } for r in obs],
+            })
+    if not out:
+        raise NotFoundError(
+            f"{identifier!r}: no reported positions for {isin!r}")
+    return info | {
+        "identifier": isin,
+        "compartments": len(out),
+        "semantics": {
+            "reported_market_value": "observed reported value history "
+                                     "— NOT a buy/sell history",
+            "derived_weight": "DERIVED (reported VM / portfolio total)",
+        },
+    }, out
+
+
+def portfolio_history(
+    root: Path | str, identifier: str,
+) -> tuple[dict, list[dict]]:
+    """Per-snapshot reported position counts and totals for each
+    resolved owner — observed aggregates, no semantics attached."""
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "positions" not in tables:
+        raise NotFoundError(
+            "no FONDCART data in dataset — run `cnmv-iic update` first")
+    reg_period = _registry_period(con, None)
+    if reg_period is not None:
+        resolution = resolve(
+            identifier,
+            share_classes=_share_class_rows(con, reg_period),
+            funds=_fund_owners(con, reg_period))
+        owners = resolution.portfolio_owners
+        if not owners:
+            raise NotFoundError(
+                f"{identifier!r} does not resolve to any compartment:"
+                f" {resolution.kind.value}"
+                + (f" — {resolution.note}" if resolution.note else ""))
+        info = _resolution_info(resolution)
+    elif identifier.count(":") == 2:
+        owners = (identifier,)
+        info = {"requested_identifier": identifier,
+                "resolved_as": ResolutionKind.EXACT_COMPARTMENT.value,
+                "note": "resolved without registry data"}
+    else:
+        raise NotFoundError(
+            f"cannot resolve {identifier!r}: portfolio-history "
+            "requires a fund/compartment key or share-class ISIN")
+
+    out = []
+    for ck in owners:
+        con.execute(
+            "SELECT period, count(*) AS n_positions,"
+            " sum(reported_market_value) AS total_reported_value,"
+            " sum(CASE WHEN kind = 'cash' THEN 1 ELSE 0 END) AS cash,"
+            " sum(CASE WHEN kind = 'security' THEN 1 ELSE 0 END)"
+            " AS securities,"
+            " min(source_artifact_id) AS source_artifact_id"
+            " FROM positions WHERE fund_key = ?"
+            " GROUP BY period ORDER BY period", [ck])
+        rows = _rows(con)
+        if rows:
+            out.append({"portfolio_owner": ck, "snapshots": rows})
+    if not out:
+        raise NotFoundError(
+            f"{identifier!r}: no FONDCART snapshots for any "
+            "resolved compartment")
+    return info | {"compartments": len(out)}, out
 
 
 def dataset_info(root: Path | str) -> dict:
