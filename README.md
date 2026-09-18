@@ -11,7 +11,11 @@ G1 FONDCART holdings ledger **PASS** (`docs/g1/results.md`, tag
 share-class observations **PASS** (`docs/g3/results.md`, tag
 `g3-daily-pass`) → G4 FONDTRIM + FONDPATRIMDISVAR implemented: quarterly
 class-level metrics/fees/official returns and compartment patrimony +
-variation, with informational cross-family reconciliation.
+variation, with informational cross-family reconciliation → G5 FONDDERI
+implemented as a verbatim evidence ledger: compartment-level derivative
+operations with official facet enums decomposed, instrument text preserved
+verbatim, explicit `representation` state — never normalized, never
+inferred.
 
 ## What this is (and isn't)
 
@@ -68,6 +72,10 @@ cnmv-iic official-returns ES0138841038         # official CNMV returns
 # compartment patrimony + variation (FONDPATRIMDISVAR)
 cnmv-iic allocation FI:9:0 --as-of 2025-12      # stock (monetary) + flow (pct)
 
+# derivative operations (FONDDERI) — verbatim evidence, never normalized
+cnmv-iic derivatives FI:9:0 --as-of 2025-12
+cnmv-iic derivatives ES0138841038 --as-of 2025-12   # class → owner compartment
+
 # informational cross-family comparison (equality never required)
 cnmv-iic reconcile 2025-12
 cnmv-iic reconcile 2025-12 --tolerance 0.005
@@ -98,7 +106,8 @@ or `$CNMV_IIC_DATA_DIR`).
 - **Determinism** — canonical row order + independent SHA-256 fingerprints
   per family: `dataset_fingerprint` (positions), `registry_fingerprint`
   (identity), `daily_fingerprint` (FONDMENS), `quarterly_fingerprint`
-  (FONDTRIM), `patrimony_fingerprint` (FONDPATRIMDISVAR).
+  (FONDTRIM), `patrimony_fingerprint` (FONDPATRIMDISVAR),
+  `derivatives_fingerprint` (FONDDERI).
 - **Units never conflated** — monetary fields keep their denomination
   currency (`codigo_divisa` per class / `codigo_divisa_iic` per IIC);
   PDV flow fields are signed percentages over average daily patrimonio,
@@ -160,10 +169,12 @@ tools/g0_probe.py  reproducible CNMV probe
 
 ## Current scope limits (deliberate non-goals)
 
-No FONDTRIM/FONDPATRIMDISVAR/FONDDERI adapters yet, no web/API,
-no issuer resolution, no corporate-group exposure, no portfolio-diff,
-no look-through, no typed derivatives, no FundsXML export, no bulk public
-dataset, no derived returns (official returns belong to FONDTRIM — G4).
+No web/API, no issuer resolution, no corporate-group exposure, no
+portfolio-diff, no look-through, no typed/normalized derivatives
+(FONDDERI stays a verbatim evidence ledger — no parsed underlier/strike/
+expiry/counterparty, no pricing/greeks, no CDM/FpML/Strata/QuantLib
+runtime), no FundsXML export, no bulk public dataset, no derived returns
+(official returns belong to FONDTRIM — G4).
 Identity history is mechanical (WHAT changed) — fund
 additions/removals as whole events and cause attribution are out of scope.
 FONDMENS `'0'` is recorded as a sentinel, never reinterpreted; the reason

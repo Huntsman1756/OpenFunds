@@ -20,7 +20,11 @@ post-adjudication tightening `4a208a6`: stale-fallback metadata + `--exact`
 verified live** (`docs/g4/contract.md` + `docs/g4/oss-review.md` +
 `docs/g4/results.md`): quarterly class metrics, compartment patrimony,
 cross-family reconcile, metrics/fees/official-returns/allocation CLI.
-119 unit tests, ruff and mypy clean.
+G5 FONDDERI **implemented and verified live** (`docs/g5/contract.md` +
+`docs/g5/oss-review.md` + `docs/g5/results.md`): verbatim evidence
+ledger — compartment derivative operations + explicit zero-operation
+coverage, `derivatives` CLI, coverage reconciliation.
+140 unit tests, ruff and mypy clean.
 Name: `cnmv-iic` (import `cnmv_iic`) — **not** "OpenFunds ES"
 (openfunds.org collision, ADR-006).
 
@@ -78,9 +82,39 @@ contract docs/g4/):
   fail closed); `allocation` accepts fund/compartment/ISIN → owner
   compartments.
 
-Still out: FONDDERI, issuer resolution, corporate-action inference,
+G5 semantics worth knowing (FONDDERI, measured contract docs/g5/):
+- Evidence ledger, NOT a normalization engine: store only what the
+  source supplies. `subyacente`/`instrumento` are officially "campo
+  texto no normalizado" — verbatim, never parsed into underlier/
+  strike/expiry/counterparty.
+- Grain: `(compartment_key, period)` — no Clase elements; same
+  portfolio-owner universe as PDV.
+- Official closed enums decomposed, not invented: `Descripcion` →
+  `side` (obligacion/derecho) + `underlier_class` (renta_fija/
+  renta_variable/tipo_de_cambio/otros); `Objetivo` → `objetivo`
+  (cobertura/inversion/objetivo_concreto_de_rentabilidad).
+- `importe_eur` = committed nominal in EUR, signed (negatives live —
+  kept verbatim). NOT market value, NOT % flow.
+- `representation` is per-row: `structured | partially_structured |
+  verbatim_only`. All live rows are partially_structured — CNMV
+  supplies facets, never machine-readable instrument identity. That is
+  the honest ceiling; a CDM export would require inference we refuse.
+- Zero-operation compartments are explicit coverage rows —
+  `reported_no_derivatives`, not absent data.
+- Reconciliation is coverage-level only: `Importe` vs PDV
+  `ResultadosDerivados` (stock EUR vs % flow) = `not_comparable`;
+  same verdict vs FONDTRIM and FONDCART. Declared, not hidden.
+- External derivative models (FINOS CDM, Strata, FpML) are
+  REFERENCE_ONLY — semantic oracle, never a runtime dependency or a
+  mold the data must fit. QuantLib = NO_USE.
+- CLI: `derivatives` accepts fund/compartment/ISIN → owner
+  compartments; exposes `representation` + provenance per row.
+  Deliberately no options/futures/swaps/underlying/delta verbs —
+  CNMV doesn't supply those concepts authoritatively.
+
+Still out: issuer resolution, corporate-action inference,
 look-through, calculated returns, rankings, web frontend, REST API,
-FundsXML export.
+FundsXML export, normalized/CDM derivatives, portfolio-diff.
 
 ## Verified environment facts
 - Windows, Python 3.11+ (uv-managed venv shadows system python — install
