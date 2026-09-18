@@ -108,3 +108,59 @@ first-class resolution states, never "missing data" to paper over.
   keep their official names.
 
 See `contract.md` for the measured coverage numbers this review produced.
+
+## FIRDS tooling review (G7-C0)
+
+### Candidates evaluated
+
+| Project | License | Activity | Verdict |
+|---|---|---|---|
+| `bunburya/pyfirds` | MIT | Active; ESMA+FCA, FULINS+DLTINS, iterparse→dataclasses | **REFERENCE** |
+| `RobiinJonsson/esma-dm` | MIT | Active; full pipeline download→CSV→DuckDB, versioning | **REFERENCE** |
+| `esma_data_py` (ESMA official) | Apache-2.0 | Solr file-list/download helpers only | REFERENCE (index pattern already replicated) |
+| `shatteringlass/FIRDS-py` | BSD-3 | Stale (~2019) | REFERENCE_ONLY |
+
+### What the review contributed
+
+`pyfirds/model.py` documents the record grain directly: `unique_id =
+isin + relevant_trading_venue` — ESMA identifies records by ISIN×MIC,
+not by ISIN. Its `ReferenceData.from_xml` shows `Issr` at record level
+(required in their model — our measurement shows 0 missing/0 invalid
+in 5.33M records, but we do NOT take it as a schema guarantee). Its
+`issuer_lei` docstring confirms the semantics caveat: for instruments
+issued by the trading venue the field holds the **venue operator** LEI.
+
+`esma-dm` contributes the lifecycle model: 10 asset partitions
+(C,D,E,F,H,I,J,O,R,S), FULINS vs DLTINS, delta record types
+NEW/MODIFIED/TERMINATED/CANCELLED, and an instruments-vs-listings
+table split — the same ISIN×venue grain insight.
+
+Neither is vendored: both lack evidence-grade provenance (artifact
+hash, member hash, record locator) and `pyfirds` would raise on
+records our contract must preserve as evidence states. Our adapter
+is a narrow streaming extractor — the schema knowledge is what we
+reused.
+
+### Measured grain (FULINS 2026-09-12, 16 in-scope files, 5,329,746 records)
+
+```text
+record identity        = ISIN × TradgVnRltdAttrbts/Id (venue MIC)
+records per ISIN       = 1 … 54  (venue multiplicity, NOT candidates)
+unique Issr per ISIN   = always 1 in this snapshot (model still 0/1/N)
+Issr missing/invalid   = 0 / 0
+records with TermntnDt = 4,766,794 (89%) — terminated venues retained
+two venue fields       = record MIC vs TechAttrbts/RlvntTradgVn
+                         (17,864 covered ISINs where they differ —
+                         the reporting venue is not the record's venue)
+```
+
+**Issr semantics by CFI letter (measured):** for C (collective
+investment) FIRDS `Issr` resolves to **subfund-level FUND entities**
+(e.g. "Invesco BulletShares 2027 EUR Corporate Bond UCITS ETF"),
+while GLEIF/ANNA maps the same ISIN to the **umbrella** ("Invesco
+Markets II PLC"). The 271 live-dataset conflicts are largely
+granularity differences, not errors. For D: GENERAL corporates,
+RESIDENT_GOVERNMENT_ENTITY, INTERNATIONAL_ORGANIZATION, securitization
+FUNDs. `relationship_semantics` is therefore recorded verbatim as
+`firds_field5_issuer_or_venue_operator` — never normalized to
+`isin_issuer_to_lei`.

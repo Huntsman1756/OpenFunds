@@ -55,6 +55,7 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
             )
     # G7 provider evidence — partitioned by (provider, snapshot), not period
     for table in ("resolution_observations", "resolution_candidates",
+                  "resolution_candidate_evidence",
                   "legal_entities", "relationships",
                   "relationship_exceptions"):
         if (root / table).exists():
@@ -1912,6 +1913,19 @@ def security_evidence(
         by_obs.setdefault(c["observation_id"], []).append(c)
     for o in obs:
         o["candidates"] = by_obs.get(o["observation_id"], [])
+    # G7-C: provider records backing candidates (FIRDS venue multiplicity)
+    if obs and "resolution_candidate_evidence" in tables:
+        ids = [o["observation_id"] for o in obs]
+        ph = ",".join("?" * len(ids))
+        evs = _rows(con.execute(
+            f"SELECT * FROM resolution_candidate_evidence "
+            f"WHERE observation_id IN ({ph}) "
+            f"ORDER BY observation_id, evidence_index", ids))
+        ev_by_obs: dict[str, list] = {}
+        for e in evs:
+            ev_by_obs.setdefault(e["observation_id"], []).append(e)
+        for o in obs:
+            o["candidate_evidence"] = ev_by_obs.get(o["observation_id"], [])
     return {"isin": isin, "observations": obs}
 
 

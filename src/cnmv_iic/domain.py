@@ -714,6 +714,7 @@ class ResolutionState(StrEnum):
     MATCHED = "matched"                          # exactly one candidate
     NO_MATCH = "no_match"                        # no row for this ISIN
     MULTIPLE_CANDIDATES = "multiple_candidates"  # >1 rows (model supports N)
+    NO_CANDIDATE = "no_candidate"                # records exist, 0 candidates
     NOT_APPLICABLE = "not_applicable"            # provider out of scope
     PROVIDER_ERROR = "provider_error"            # per-record provider failure
 
@@ -759,6 +760,30 @@ class ResolutionCandidate:
     relationship_semantics: str     # "isin_issuer_to_lei"
     provider_record_locator: str    # "<member>#row=<n>" — to the GLEIF csv line
     raw_json: str                   # verbatim provider fields as JSON
+
+
+@dataclass(frozen=True)
+class CandidateEvidence:
+    """One provider record backing a resolution candidate (G7-C).
+
+    Providers like FIRDS emit N records per ISIN (one per venue MIC);
+    those are redundant evidence for ONE candidate, never N candidates.
+    Each row preserves the full record provenance: source file, record
+    ordinal, venue MICs and lifecycle dates verbatim. ``candidate_lei``
+    is empty for records that carry no candidate value (e.g. missing
+    Issr) — the record itself is still evidence."""
+
+    evidence_id: str                # "<observation_id>#<evidence_index>"
+    observation_id: str
+    candidate_lei: str              # "" when the record has no candidate
+    evidence_index: int             # 1-based, provider record order
+    provider_record_locator: str    # "<file>#RefData=<n>"
+    source_file: str                # FULINS member name
+    trading_venue: str | None       # record venue MIC
+    relevant_venue: str | None      # TechAttrbts reporting venue
+    first_trade_date: str | None
+    termination_date: str | None
+    raw_json: str                   # verbatim provider record as JSON
 
 
 # ---------------------------------------------------------------------------

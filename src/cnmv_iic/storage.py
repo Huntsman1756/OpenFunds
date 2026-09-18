@@ -23,6 +23,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from cnmv_iic.domain import (
+    CandidateEvidence,
     CompartmentDerivativeCoverage,
     CompartmentDerivativeOperation,
     CompartmentPatrimonySnapshot,
@@ -944,6 +945,37 @@ def resolution_candidate_rows(
     return rows
 
 
+CANDIDATE_EVIDENCE_SCHEMA = pa.schema([
+    ("evidence_id", pa.string()),          # <observation_id>#<index>
+    ("observation_id", pa.string()),
+    ("candidate_lei", pa.string()),        # "" when record has no candidate
+    ("evidence_index", pa.int32()),
+    ("provider_record_locator", pa.string()),
+    ("source_file", pa.string()),
+    ("trading_venue", pa.string()),
+    ("relevant_venue", pa.string()),
+    ("first_trade_date", pa.string()),
+    ("termination_date", pa.string()),
+    ("raw_json", pa.string()),
+])
+
+
+def candidate_evidence_rows(evs: list[CandidateEvidence]) -> list[dict]:
+    return [{
+        "evidence_id": e.evidence_id,
+        "observation_id": e.observation_id,
+        "candidate_lei": e.candidate_lei,
+        "evidence_index": e.evidence_index,
+        "provider_record_locator": e.provider_record_locator,
+        "source_file": e.source_file,
+        "trading_venue": e.trading_venue,
+        "relevant_venue": e.relevant_venue,
+        "first_trade_date": e.first_trade_date,
+        "termination_date": e.termination_date,
+        "raw_json": e.raw_json,
+    } for e in sorted(evs, key=lambda e: e.evidence_id)]
+
+
 def write_provider_resolution(
     dataset_root: Path | str,
     *,
@@ -952,6 +984,8 @@ def write_provider_resolution(
     observations: list[ResolutionObservation],
     candidates: list[ResolutionCandidate],
     artifact_id: str,
+    evidences: list[CandidateEvidence] | None = None,
+    manifest_extra: dict | None = None,
 ) -> dict:
     """Write resolution evidence partitioned by (provider, snapshot).
 
@@ -972,10 +1006,19 @@ def write_provider_resolution(
             crow, RESOLUTION_CANDIDATES_SCHEMA,
             root / "resolution_candidates" / f"provider={provider}"
             / f"snapshot={snapshot_date}" / "part-0.parquet")
+    xrow = candidate_evidence_rows(evidences) if evidences else []
+    if xrow:
+        _write_table(
+            xrow, CANDIDATE_EVIDENCE_SCHEMA,
+            root / "resolution_candidate_evidence"
+            / f"provider={provider}" / f"snapshot={snapshot_date}"
+            / "part-0.parquet")
     matched = sum(1 for o in observations
                   if o.state == ResolutionState.MATCHED)
     multi = sum(1 for o in observations
                 if o.state == ResolutionState.MULTIPLE_CANDIDATES)
+    nocand = sum(1 for o in observations
+                 if o.state == ResolutionState.NO_CANDIDATE)
     manifest = {
         "provider": provider,
         "provider_snapshot_date": snapshot_date,
@@ -983,11 +1026,18 @@ def write_provider_resolution(
         "observations": len(orow),
         "matched": matched,
         "multiple_candidates": multi,
-        "no_match": len(orow) - matched - multi,
+        "no_candidate": nocand,
+        "no_match": len(orow) - matched - multi - nocand,
         "candidates": len(crow),
+        "evidence_records": len(xrow),
         "universe_isins": len(observations),
-        "resolution_fingerprint": canonical_fingerprint(orow, crow),
+        # evidence rows join the fingerprint only when present — the G7-A
+        # fingerprint (orow, crow) must stay byte-identical
+        "resolution_fingerprint": canonical_fingerprint(
+            orow, crow, *([xrow] if xrow else [])),
     }
+    if manifest_extra:
+        manifest.update(manifest_extra)
     (root / "manifests").mkdir(parents=True, exist_ok=True)
     mname = f"resolution_{provider}_{snapshot_date}.json"
     with open(root / "manifests" / mname, "w", encoding="utf-8") as f:

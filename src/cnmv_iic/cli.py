@@ -15,6 +15,7 @@ from cnmv_iic.artifacts.store import ArtifactStore
 from cnmv_iic.errors import CnmvIicError
 from cnmv_iic.ingest import update_period
 from cnmv_iic.provider_ingest import (
+    ingest_firds_fulins,
     ingest_gleif_golden,
     ingest_gleif_isin_lei,
 )
@@ -160,6 +161,46 @@ def ingest_provider(
             "multiple_candidates": result.multiple_candidates,
             "no_match": result.no_match,
             "candidates": result.candidates,
+            "resolution_fingerprint": result.resolution_fingerprint,
+        },
+        json_out,
+    )
+
+
+@app.command(name="ingest-firds-fulins")
+def ingest_firds_cmd(
+    zips: Annotated[list[Path], typer.Argument(
+        help="All in-scope FULINS parts of ONE snapshot date")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Ingest a complete pinned FULINS snapshot as resolution evidence.
+
+    Every part must declare the same snapshot date (filename and the
+    in-file RptgPrd/Dt must agree) and each asset letter's part set must
+    be complete (NNofMM). Records are extracted only for corpus ISINs;
+    ISIN x venue records backing the same LEI are preserved as evidence
+    rows — never collapsed, never counted as multiple candidates.
+    """
+    root = data_dir or _data_dir()
+    store = ArtifactStore(root / "artifacts")
+    result = _run(lambda: ingest_firds_fulins(
+        store, root / "dataset", zips))
+    _emit(
+        {
+            "provider": result.provider,
+            "provider_snapshot_date": result.snapshot_date,
+            "artifact_ids": result.artifact_ids,
+            "artifacts_new": result.artifacts_new,
+            "exported": result.exported,
+            "universe_isins": result.universe_isins,
+            "observations": result.observations,
+            "matched": result.matched,
+            "multiple_candidates": result.multiple_candidates,
+            "no_candidate": result.no_candidate,
+            "no_match": result.no_match,
+            "candidates": result.candidates,
+            "evidence_records": result.evidence_records,
             "resolution_fingerprint": result.resolution_fingerprint,
         },
         json_out,

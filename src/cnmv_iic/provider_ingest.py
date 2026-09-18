@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import zipfile
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -375,4 +376,181 @@ def ingest_gleif_golden(
         relationship_types=tuple(m["relationship_types"]),
         relationship_exceptions=m["relationship_exceptions"],
         evidence_fingerprint=m["evidence_fingerprint"],
+    )
+
+
+FIRDS_PAGE = (
+    "https://registers.esma.europa.eu/publication/searchRegister"
+    "?core=esma_registers_firds_files"
+)
+
+
+@dataclass(frozen=True)
+class FirdsIngestResult:
+    provider: str
+    snapshot_date: str
+    artifact_ids: dict[str, str]      # member -> source_id
+    artifacts_new: int
+    exported: bool
+    observations: int
+    matched: int
+    multiple_candidates: int
+    no_candidate: int
+    no_match: int
+    candidates: int
+    evidence_records: int
+    universe_isins: int
+    resolution_fingerprint: str | None
+
+
+def ingest_firds_fulins(
+    store: ArtifactStore,
+    dataset_root: Path | str,
+    zip_paths: Sequence[Path | str],
+    *,
+    retrieved_at: datetime | None = None,
+) -> FirdsIngestResult:
+    """Ingest a complete pinned FULINS snapshot (all in-scope parts).
+
+    Gates: every part declares the same snapshot date (filename AND
+    RptgPrd/Dt must agree); each asset letter's part set must be
+    complete (NNofMM). Absence of an ISIN = ``no_match`` — never
+    inferred ``not_applicable``.
+    """
+    from cnmv_iic.adapters import firds_fulins
+
+    dataset_root = Path(dataset_root)
+    paths = [Path(p) for p in zip_paths]
+    if not paths:
+        raise ParseError("no FULINS files provided")
+
+    infos: dict[str, firds_fulins.FirdsFileInfo] = {}
+    dates: set[str] = set()
+    for p in paths:
+        with zipfile.ZipFile(p) as zf:
+            info = firds_fulins.file_info(zf)
+            rpt = firds_fulins.rptg_period_date(zf, info.member_name)
+        if rpt and rpt != info.snapshot_date:
+            raise ParseError(
+                f"{p.name}: filename date {info.snapshot_date} disagrees"
+                f" with RptgPrd/Dt {rpt}")
+        infos[info.member_name] = info
+        dates.add(info.snapshot_date)
+    if len(dates) != 1:
+        raise ParseError(
+            f"snapshot_date_mismatch across FULINS parts: {sorted(dates)}")
+    snapshot_date = dates.pop()
+
+    # completeness: all parts 1..N of each asset letter present
+    by_asset: dict[str, set[int]] = {}
+    totals: dict[str, int] = {}
+    for i in infos.values():
+        by_asset.setdefault(i.asset_letter, set()).add(i.part)
+        totals[i.asset_letter] = i.total_parts
+    incomplete = {
+        a: sorted(set(range(1, totals[a] + 1)) - parts)
+        for a, parts in by_asset.items()
+        if parts != set(range(1, totals[a] + 1))}
+    if incomplete:
+        raise ParseError(f"incomplete FULINS parts: {incomplete}")
+
+    artifacts: dict[str, tuple[SourceArtifact, bool]] = {}
+    for p in paths:
+        with zipfile.ZipFile(p) as zf:
+            info = firds_fulins.file_info(zf)
+        a, is_new = store.put(
+            period=snapshot_date,
+            source_page=FIRDS_PAGE,
+            source_url=str(p),
+            content_type="application/zip",
+            data=p.read_bytes(),
+            retrieved_at=retrieved_at,
+            provider="esma",
+            # one dedupe key per part — a shared family would make all
+            # parts collide on (period, provider, source_family)
+            source_family=(
+                f"firds-fulins-{info.asset_letter}{info.part:02d}"),
+            source_id_prefix=(
+                f"esma-fulins-{info.asset_letter}{info.part:02d}"),
+        )
+        artifacts[info.member_name] = (a, is_new)
+
+    manifest_path = (dataset_root / "manifests"
+                     / f"resolution_esma_firds_{snapshot_date}.json")
+    if (not any(n for _, n in artifacts.values())
+            and manifest_path.exists()):
+        m = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return FirdsIngestResult(
+            provider=firds_fulins.PROVIDER,
+            snapshot_date=snapshot_date,
+            artifact_ids=m["source_artifact_ids"],
+            artifacts_new=0,
+            exported=False,
+            observations=m["observations"],
+            matched=m["matched"],
+            multiple_candidates=m["multiple_candidates"],
+            no_candidate=m["no_candidate"],
+            no_match=m["no_match"],
+            candidates=m["candidates"],
+            evidence_records=m["evidence_records"],
+            universe_isins=m["universe_isins"],
+            resolution_fingerprint=m["resolution_fingerprint"],
+        )
+
+    universe = _corpus_isin_universe(dataset_root)
+    wanted = set(universe)
+    records: dict[str, list[tuple[str, int, dict]]] = {}
+    artifact_ids: dict[str, str] = {}
+    source_sha256s: dict[str, str] = {}
+    member_sha256s: dict[str, str] = {}
+    for member, (a, _n) in sorted(artifacts.items()):
+        artifact_ids[member] = a.source_id
+        source_sha256s[member] = a.sha256
+        member_sha256s[member] = next(
+            (m.sha256 for m in a.members if m.name == member), "")
+        with zipfile.ZipFile(store.raw_path(a)) as zf:
+            for ordinal, rec in firds_fulins.iter_refdata(
+                    zf, member, wanted):
+                records.setdefault(rec["isin"], []).append(
+                    (member, ordinal, rec))
+
+    observations, candidates, evidences = (
+        firds_fulins.build_observations(
+            universe, records,
+            snapshot_date=snapshot_date,
+            artifact_ids=artifact_ids,
+            source_sha256s=source_sha256s,
+            member_sha256s=member_sha256s,
+            retrieved_at=artifacts[sorted(artifacts)[0]][0].retrieved_at,
+        ))
+
+    manifest = write_provider_resolution(
+        dataset_root,
+        provider=firds_fulins.PROVIDER,
+        snapshot_date=snapshot_date,
+        observations=observations,
+        candidates=candidates,
+        artifact_id=artifact_ids[sorted(artifact_ids)[0]],
+        evidences=evidences,
+        manifest_extra={
+            "source_artifact_ids": artifact_ids,
+            "asset_letters": sorted(by_asset),
+            "files": sorted(infos),
+        },
+    )
+    return FirdsIngestResult(
+        provider=firds_fulins.PROVIDER,
+        snapshot_date=snapshot_date,
+        artifact_ids=artifact_ids,
+        artifacts_new=sum(1 for _, n in artifacts.values() if n),
+        exported=True,
+        observations=manifest["observations"],
+        matched=manifest["matched"],
+        multiple_candidates=manifest["multiple_candidates"],
+        no_candidate=manifest["no_candidate"],
+        no_match=manifest["no_match"],
+        candidates=manifest["candidates"],
+        evidence_records=manifest["evidence_records"],
+        universe_isins=manifest["universe_isins"],
+        resolution_fingerprint=manifest["resolution_fingerprint"],
     )
