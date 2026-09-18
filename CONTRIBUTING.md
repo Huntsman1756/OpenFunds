@@ -23,6 +23,24 @@ Hard rules:
 5. **Determinism.** Same artifact + same parser version => same ordered
    rows and same `dataset_fingerprint`.
 
+## Reuse-first protocol (gate for every milestone)
+
+Before implementing any component, survey existing solutions:
+
+1. Search GitHub/GitLab and package ecosystems for implementations that
+   cover the surface.
+2. Inspect real code, tests, maintenance, security and license — a README
+   is not evidence.
+3. Classify each candidate in `docs/gN/oss-review.md`:
+   `REUSE_DIRECTLY` | `ADAPT` | `PORT` | `REFERENCE_ONLY` | `REJECT`.
+4. Prefer mature OSS for generic infrastructure (XML/XSD, Parquet/DuckDB,
+   CLI, identifiers, caching, security hardening, testing, packaging).
+   Write custom code only for the genuinely CNMV-specific parts or when
+   no candidate meets the contract.
+5. `REFERENCE_ONLY`/`REJECT` are legitimate outcomes — an abandoned,
+   license-less or semantically wrong repo is never reused by default.
+   The review exists to prevent blind reinvention AND blind reuse.
+
 ## Development setup
 
 ```bash

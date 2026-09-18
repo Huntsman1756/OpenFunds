@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## Operating principles
+
+- **Reuse-first, build-last** — per-milestone OSS review is a GATE:
+  survey candidates, inspect code/license/tests, classify
+  REUSE_DIRECTLY/ADAPT/PORT/REFERENCE_ONLY/REJECT in
+  `docs/gN/oss-review.md` BEFORE writing the component (protocol in
+  CONTRIBUTING.md). G3 review is at `docs/g3/oss-review.md`.
+- Evidence-first, fail-closed, provenance-preserving; Decimal never
+  float; no invented data; no silent inference.
+
 ## Project state
 
 G1 holdings ledger **PASS** (tag `g1-holdings-pass`). G2 regulatory
