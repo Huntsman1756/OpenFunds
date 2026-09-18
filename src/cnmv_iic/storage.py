@@ -28,6 +28,9 @@ from cnmv_iic.domain import (
     CompartmentPatrimonySnapshot,
     FundRecord,
     PortfolioSnapshot,
+    ResolutionCandidate,
+    ResolutionObservation,
+    ResolutionState,
     ShareClassDailyObservation,
     ShareClassQuarterlyMetrics,
 )
@@ -861,6 +864,130 @@ def write_period(
 
     (root / "manifests").mkdir(parents=True, exist_ok=True)
     with open(root / "manifests" / f"{period}.json", "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=1, sort_keys=True)
+    return manifest
+
+
+RESOLUTION_OBSERVATIONS_SCHEMA = pa.schema([
+    ("observation_id", pa.string()),         # <provider>/<snapshot>/<isin>
+    ("isin", pa.string()),                   # upstream-gated to valid
+    ("provider", pa.string()),
+    ("provider_dataset", pa.string()),
+    ("provider_snapshot_date", pa.string()), # YYYY-MM-DD
+    ("provider_artifact_id", pa.string()),
+    ("state", pa.string()),                  # matched|no_match|multiple_...
+    ("candidate_count", pa.int32()),
+    ("holding_periods", pa.string()),        # JSON array of corpus YYYY-MM
+    ("temporal_semantics", pa.string()),
+    ("retrieved_at", pa.string()),
+    ("source_sha256", pa.string()),
+    ("member_name", pa.string()),
+    ("member_sha256", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+RESOLUTION_CANDIDATES_SCHEMA = pa.schema([
+    ("observation_id", pa.string()),
+    ("candidate_index", pa.int32()),
+    ("candidate_lei", pa.string()),
+    ("relationship_semantics", pa.string()),
+    ("provider_record_locator", pa.string()),  # <member>#row=<n>
+    ("raw_json", pa.string()),
+])
+
+
+def resolution_observation_rows(
+    obs: list[ResolutionObservation],
+) -> list[dict]:
+    rows = []
+    for o in sorted(obs, key=lambda o: o.observation_id):
+        rows.append({
+            "observation_id": o.observation_id,
+            "isin": o.isin,
+            "provider": o.provider,
+            "provider_dataset": o.provider_dataset,
+            "provider_snapshot_date": o.provider_snapshot_date,
+            "provider_artifact_id": o.provider_artifact_id,
+            "state": o.state.value,
+            "candidate_count": o.candidate_count,
+            "holding_periods": json.dumps(
+                sorted(o.holding_periods)),
+            "temporal_semantics": o.temporal_semantics,
+            "retrieved_at": o.retrieved_at,
+            "source_sha256": o.source_sha256,
+            "member_name": o.member_name,
+            "member_sha256": o.member_sha256,
+            "parser": o.parser,
+            "parser_version": o.parser_version,
+        })
+    return rows
+
+
+def resolution_candidate_rows(
+    cands: list[ResolutionCandidate],
+) -> list[dict]:
+    rows = []
+    for c in sorted(cands, key=lambda c: (c.observation_id,
+                                          c.candidate_index)):
+        rows.append({
+            "observation_id": c.observation_id,
+            "candidate_index": c.candidate_index,
+            "candidate_lei": c.candidate_lei,
+            "relationship_semantics": c.relationship_semantics,
+            "provider_record_locator": c.provider_record_locator,
+            "raw_json": c.raw_json,
+        })
+    return rows
+
+
+def write_provider_resolution(
+    dataset_root: Path | str,
+    *,
+    provider: str,
+    snapshot_date: str,
+    observations: list[ResolutionObservation],
+    candidates: list[ResolutionCandidate],
+    artifact_id: str,
+) -> dict:
+    """Write resolution evidence partitioned by (provider, snapshot).
+
+    A new provider snapshot creates a NEW partition — evidence is
+    append-only, never overwritten (gate: new snapshot = new evidence).
+    Returns the provider manifest.
+    """
+    root = Path(dataset_root)
+    orow = resolution_observation_rows(observations)
+    crow = resolution_candidate_rows(candidates)
+    if orow:
+        _write_table(
+            orow, RESOLUTION_OBSERVATIONS_SCHEMA,
+            root / "resolution_observations" / f"provider={provider}"
+            / f"snapshot={snapshot_date}" / "part-0.parquet")
+    if crow:
+        _write_table(
+            crow, RESOLUTION_CANDIDATES_SCHEMA,
+            root / "resolution_candidates" / f"provider={provider}"
+            / f"snapshot={snapshot_date}" / "part-0.parquet")
+    matched = sum(1 for o in observations
+                  if o.state == ResolutionState.MATCHED)
+    multi = sum(1 for o in observations
+                if o.state == ResolutionState.MULTIPLE_CANDIDATES)
+    manifest = {
+        "provider": provider,
+        "provider_snapshot_date": snapshot_date,
+        "source_artifact_id": artifact_id,
+        "observations": len(orow),
+        "matched": matched,
+        "multiple_candidates": multi,
+        "no_match": len(orow) - matched - multi,
+        "candidates": len(crow),
+        "universe_isins": len(observations),
+        "resolution_fingerprint": canonical_fingerprint(orow, crow),
+    }
+    (root / "manifests").mkdir(parents=True, exist_ok=True)
+    mname = f"resolution_{provider}_{snapshot_date}.json"
+    with open(root / "manifests" / mname, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1, sort_keys=True)
     return manifest
 

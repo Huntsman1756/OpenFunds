@@ -14,6 +14,7 @@ import typer
 from cnmv_iic.artifacts.store import ArtifactStore
 from cnmv_iic.errors import CnmvIicError
 from cnmv_iic.ingest import update_period
+from cnmv_iic.provider_ingest import ingest_gleif_isin_lei
 from cnmv_iic.query import (
     class_observation_summary,
     daily_series,
@@ -111,6 +112,51 @@ def update(
             "derivative_coverage_records":
                 result.derivative_coverage_records,
             "fondderi_present": result.fondderi_present,
+        },
+        json_out,
+    )
+
+
+@app.command(name="ingest-provider")
+def ingest_provider(
+    provider: Annotated[str, typer.Argument(
+        help="Provider dataset: gleif-isin-lei")],
+    zip_path: Annotated[Path, typer.Argument(
+        help="Pinned provider artifact ZIP (full snapshot)")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Ingest a pinned provider snapshot into the resolution evidence ledger.
+
+    The artifact is stored immutably (SHA-256), parsed once, and joined
+    exactly by ISIN against the corpus positions universe. Re-ingesting
+    the same bytes is a no-op; a new snapshot date creates NEW evidence,
+    never an overwrite. This produces observations, not canonical
+    resolution (adjudication comes after all providers are loaded).
+    """
+    root = data_dir or _data_dir()
+    store = ArtifactStore(root / "artifacts")
+    if provider == "gleif-isin-lei":
+        result = _run(lambda: ingest_gleif_isin_lei(
+            store, root / "dataset", zip_path))
+    else:
+        raise typer.BadParameter(
+            f"unknown provider {provider!r} — supported: gleif-isin-lei")
+    _emit(
+        {
+            "provider": result.provider,
+            "provider_snapshot_date": result.snapshot_date,
+            "artifact": result.artifact.source_id,
+            "artifact_sha256": result.artifact.sha256,
+            "artifact_new": result.artifact_new,
+            "exported": result.exported,
+            "universe_isins": result.universe_isins,
+            "observations": result.observations,
+            "matched": result.matched,
+            "multiple_candidates": result.multiple_candidates,
+            "no_match": result.no_match,
+            "candidates": result.candidates,
+            "resolution_fingerprint": result.resolution_fingerprint,
         },
         json_out,
     )

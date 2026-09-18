@@ -23,6 +23,7 @@ from cnmv_iic.domain import (
     Resolution,
     ResolutionKind,
     ShareClass,
+    classify_isin,
 )
 from cnmv_iic.errors import NotFoundError
 from cnmv_iic.identity import ShareClassRow, diff_registry, resolve
@@ -48,6 +49,15 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
                   "derivatives", "derivative_coverage"):
         if (root / table).exists():
             glob = str(root / table / "period=*" / "*.parquet")
+            con.execute(
+                f"CREATE VIEW {table} AS "
+                f"SELECT * FROM read_parquet('{glob}', hive_partitioning=true)"
+            )
+    # G7 provider evidence — partitioned by (provider, snapshot), not period
+    for table in ("resolution_observations", "resolution_candidates"):
+        if (root / table).exists():
+            glob = str(root / table / "provider=*" / "snapshot=*"
+                       / "*.parquet")
             con.execute(
                 f"CREATE VIEW {table} AS "
                 f"SELECT * FROM read_parquet('{glob}', hive_partitioning=true)"
@@ -1860,6 +1870,47 @@ def portfolio_history(
             f"{identifier!r}: no FONDCART snapshots for any "
             "resolved compartment")
     return info | {"compartments": len(out)}, out
+
+
+def security_evidence(
+    root: Path | str, isin: str,
+) -> dict:
+    """All provider observations + candidates for one ISIN (G7 evidence).
+
+    Returns observations across every loaded provider snapshot — evidence,
+    not adjudication. ``isin`` is upper-cased; masked/invalid input fails
+    closed.
+    """
+    isin = isin.strip().upper()
+    state = classify_isin(isin)
+    if state is not IsinState.VALID:
+        raise NotFoundError(
+            f"identifier {isin!r} is {state.value}, not a valid ISIN — "
+            f"no provider resolution attempted")
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "resolution_observations" not in tables:
+        return {"isin": isin, "observations": [],
+                "note": "no provider evidence loaded — run "
+                        "`cnmv-iic ingest-provider` first"}
+    obs = _rows(con.execute(
+        "SELECT * FROM resolution_observations WHERE isin = ? "
+        "ORDER BY provider_snapshot_date DESC, provider", [isin]))
+    cands = []
+    if obs and "resolution_candidates" in tables:
+        ids = [o["observation_id"] for o in obs]
+        ph = ",".join("?" * len(ids))
+        cands = _rows(con.execute(
+            f"SELECT * FROM resolution_candidates "
+            f"WHERE observation_id IN ({ph}) "
+            f"ORDER BY observation_id, candidate_index", ids))
+    by_obs: dict[str, list] = {}
+    for c in cands:
+        by_obs.setdefault(c["observation_id"], []).append(c)
+    for o in obs:
+        o["candidates"] = by_obs.get(o["observation_id"], [])
+    return {"isin": isin, "observations": obs}
 
 
 def dataset_info(root: Path | str) -> dict:

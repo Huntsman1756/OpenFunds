@@ -695,3 +695,67 @@ class CompartmentDerivativeCoverage:
     registry_state: RegistryJoinState
     period: str
     provenance: Provenance
+
+
+# ---------------------------------------------------------------------------
+# G7 — resolution evidence ledger (provider observations, NOT canonical
+# resolution). Adjudication happens later (G7-E) over ALL providers'
+# observations — never inside a single-provider adapter.
+# ---------------------------------------------------------------------------
+
+TEMPORAL_SEMANTICS = "current_enrichment_of_historical_security"
+
+
+class ResolutionState(StrEnum):
+    """Per-observation outcome — what one provider snapshot said about one
+    ISIN. ``no_match`` means only "this provider snapshot contains no
+    ISIN->LEI row for this ISIN" — never "issuer has no LEI"."""
+
+    MATCHED = "matched"                          # exactly one candidate
+    NO_MATCH = "no_match"                        # no row for this ISIN
+    MULTIPLE_CANDIDATES = "multiple_candidates"  # >1 rows (model supports N)
+    NOT_APPLICABLE = "not_applicable"            # provider out of scope
+    PROVIDER_ERROR = "provider_error"            # per-record provider failure
+
+
+@dataclass(frozen=True)
+class ResolutionObservation:
+    """One provider's answer for one ISIN in one pinned snapshot.
+
+    Grain: (isin, provider, provider_snapshot_date). ``holding_periods``
+    records which corpus periods carry the ISIN — kept separate from
+    ``provider_snapshot_date`` so current enrichment can never be read as
+    as-of-holding knowledge.
+    """
+
+    observation_id: str             # "<provider>/<snapshot>/<isin>"
+    isin: str                       # upstream-gated to isin_state=valid
+    provider: str                   # "gleif_anna_isin_lei"
+    provider_dataset: str           # "isin-lei"
+    provider_snapshot_date: str     # "YYYY-MM-DD" — artifact date
+    provider_artifact_id: str       # immutable provider artifact
+    state: ResolutionState
+    candidate_count: int
+    holding_periods: tuple[str, ...]  # corpus periods where ISIN observed
+    temporal_semantics: str         # TEMPORAL_SEMANTICS constant
+    retrieved_at: str
+    source_sha256: str              # provider zip sha256
+    member_name: str                # csv member inside the zip
+    member_sha256: str
+    parser: str
+    parser_version: str
+
+
+@dataclass(frozen=True)
+class ResolutionCandidate:
+    """One candidate LEI attached to an observation. The model allows 0/1/N
+    candidates — observed GLEIF snapshots are functional (0 or 1), but a
+    future snapshot breaking the invariant becomes ``multiple_candidates``,
+    not a DB exception or a dropped row."""
+
+    observation_id: str
+    candidate_index: int            # 1-based, deterministic (provider row order)
+    candidate_lei: str
+    relationship_semantics: str     # "isin_issuer_to_lei"
+    provider_record_locator: str    # "<member>#row=<n>" — to the GLEIF csv line
+    raw_json: str                   # verbatim provider fields as JSON

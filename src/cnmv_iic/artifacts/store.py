@@ -89,8 +89,15 @@ class ArtifactStore:
                 out.append(SourceArtifact(**d))
         return out
 
-    def latest_for_period(self, period: str) -> SourceArtifact | None:
-        arts = [a for a in self.load() if a.period == period]
+    def latest_for_period(
+        self, period: str, *, provider: str = "cnmv",
+        source_family: str | None = None,
+    ) -> SourceArtifact | None:
+        arts = [
+            a for a in self.load()
+            if a.period == period and a.provider == provider
+            and (source_family is None or a.source_family == source_family)
+        ]
         return arts[-1] if arts else None
 
     def get(self, sha: str) -> SourceArtifact | None:
@@ -111,14 +118,20 @@ class ArtifactStore:
         content_type: str | None,
         data: bytes,
         retrieved_at: datetime | None = None,
+        provider: str = "cnmv",
+        source_family: str = "descarga-informacion-individual",
+        source_id_prefix: str = "cnmv-iic-zip",
     ) -> tuple[SourceArtifact, bool]:
         """Store artifact bytes; returns (artifact, created_new_version).
 
-        Idempotent: identical bytes for an already-registered period return
-        the existing artifact and ``False``.
+        Idempotent: identical bytes for an already-registered
+        (period, provider, source_family) return the existing artifact
+        and ``False``. ``period`` is the artifact's natural dedupe key —
+        a CNMV publication month or a provider snapshot date.
         """
         digest = sha256(data).hexdigest()
-        prior = self.latest_for_period(period)
+        prior = self.latest_for_period(
+            period, provider=provider, source_family=source_family)
         if prior is not None and prior.sha256 == digest:
             return prior, False
 
@@ -148,9 +161,9 @@ class ArtifactStore:
                     xsd_hashes[fam] = m.sha256
 
         artifact = SourceArtifact(
-            source_id=f"cnmv-iic-zip/{period}/{digest}",
-            provider="cnmv",
-            source_family="descarga-informacion-individual",
+            source_id=f"{source_id_prefix}/{period}/{digest}",
+            provider=provider,
+            source_family=source_family,
             period=period,
             source_page=source_page,
             source_url_ephemeral=source_url,
