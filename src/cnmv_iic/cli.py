@@ -22,6 +22,7 @@ from cnmv_iic.query import (
     funds_by_institution,
     funds_holding,
     identity_events,
+    patrimony_reconciliation,
     share_class_info,
 )
 from cnmv_iic.query import holdings as query_holdings
@@ -343,6 +344,27 @@ def dataset_info_cmd(
     """Periods, row counts, quality states, fingerprints."""
     root = data_dir or _data_dir()
     _emit(_run(lambda: dataset_info(root / "dataset")), json_out)
+
+
+@app.command()
+def reconcile(
+    period: Annotated[str, typer.Argument(
+        help="period YYYY-MM with FONDTRIM+FONDPATRIMDISVAR+FONDMENS"
+    )],
+    tolerance: Annotated[float, typer.Option(
+        help="relative tolerance for 'match' (default 1%)"
+    )] = 0.01,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Cross-family patrimony comparison — derived, equality not required."""
+    root = data_dir or _data_dir()
+    _emit(
+        _run(lambda: patrimony_reconciliation(
+            root / "dataset", period,
+            tolerance_rel=Decimal(str(tolerance)))),
+        json_out,
+    )
 
 
 @app.command()

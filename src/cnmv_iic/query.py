@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
@@ -38,7 +39,7 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
         raise NotFoundError(f"no dataset under {root} — run `cnmv-iic update` first")
     con = duckdb.connect(database=":memory:")
     for table in ("positions", "quality", "funds", "compartments",
-                  "share_classes", "daily"):
+                  "share_classes", "daily", "quarterly", "patrimony"):
         if (root / table).exists():
             glob = str(root / table / "period=*" / "*.parquet")
             con.execute(
@@ -613,6 +614,196 @@ def class_observation_summary(
     return info, summary
 
 
+def patrimony_reconciliation(
+    root: Path | str, period: str, *,
+    tolerance_rel: Decimal = Decimal("0.01"),
+) -> dict:
+    """Derived cross-family patrimony comparison for one period (G4-C).
+
+    Compares OBSERVED patrimony across families at the same period end —
+    informational only, never a hard gate and never written back:
+
+    1. FONDTRIM class ``patrimonio`` vs FONDMENS month-end class ``aum``
+       (last OBSERVED day; only comparable when TRIM ``codigo_divisa``
+       is EUR — FONDMENS is documented EUR).
+    2. FONDPATRIMDISVAR ``total_patrimonio`` vs the sum of FONDTRIM
+       class ``patrimonio`` in the compartment (only when all class
+       currencies equal ``codigo_divisa_iic``).
+    3. FONDPATRIMDISVAR ``total_patrimonio`` vs the sum of FONDMENS
+       month-end ``aum`` in the compartment (same currency check).
+
+    ``state`` is ``match`` (rel diff <= tolerance), ``diff``,
+    ``skipped_currency`` or ``skipped_missing``. Equality is NOT
+    required — different cutoffs (e.g. TRIM '.00' vs MENS cents) are
+    documented semantics, not errors.
+    """
+    con = _con(root)
+    if not re.fullmatch(r"\d{4}-\d{2}", period):
+        raise NotFoundError(f"bad period {period!r} — expected YYYY-MM")
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    have_q = "quarterly" in tables
+    have_p = "patrimony" in tables
+    have_d = "daily" in tables
+    if not have_q and not have_p:
+        raise NotFoundError(
+            f"no FONDTRIM/FONDPATRIMDISVAR data for {period} — "
+            "run `cnmv-iic update` for a cadence period")
+    # CREATE VIEW cannot take bound parameters — period is regex-validated.
+    # Absent tables degrade to empty views so LEFT JOINs yield
+    # skipped_missing rather than a catalog error.
+    if have_d:
+        con.execute(
+            "CREATE VIEW mens_eom AS SELECT share_class_key,"
+            " compartment_key, aum, observation_date FROM daily"
+            f" WHERE period = '{period}' AND aum_state = 'observed'"
+            " QUALIFY row_number() OVER ("
+            "   PARTITION BY share_class_key ORDER BY day_index DESC) = 1",
+        )
+    else:
+        con.execute(
+            "CREATE VIEW mens_eom AS SELECT NULL::VARCHAR share_class_key,"
+            " NULL::VARCHAR compartment_key, NULL::DECIMAL(38,2) aum,"
+            " NULL::DATE observation_date WHERE false",
+        )
+    if not have_q:
+        con.execute(
+            "CREATE VIEW quarterly AS SELECT NULL::VARCHAR period,"
+            " NULL::VARCHAR share_class_key,"
+            " NULL::VARCHAR compartment_key, NULL::DECIMAL(38,2) patrimonio,"
+            " NULL::VARCHAR codigo_divisa WHERE false",
+        )
+
+    rows: list[dict] = []
+
+    def _emit(subject: str, metric: str,
+              left: Decimal | None, left_src: str,
+              right: Decimal | None, right_src: str,
+              state: str, note: str | None) -> None:
+        abs_diff = rel = None
+        if state == "comparable":
+            if left is not None and right is not None:
+                abs_diff = abs(left - right)
+                rel = (abs_diff / abs(right)) if right else (
+                    Decimal(0) if abs_diff == 0 else None)
+                state = ("match"
+                         if rel is not None and rel <= tolerance_rel
+                         else "diff")
+            else:
+                state = "skipped_missing"
+        rows.append({
+            "subject_key": subject, "metric": metric,
+            "left_value": left, "left_source": left_src,
+            "right_value": right, "right_source": right_src,
+            "abs_diff": abs_diff, "rel_diff": rel,
+            "state": state, "note": note,
+        })
+
+    # 1. TRIM class patrimonio vs MENS month-end class AUM
+    con.execute(
+        "SELECT q.share_class_key, q.patrimonio, m.aum, q.codigo_divisa"
+        " FROM quarterly q"
+        " LEFT JOIN mens_eom m USING (share_class_key)"
+        " WHERE q.period = ? ORDER BY q.share_class_key", [period])
+    for r in _rows(con):
+        if r["patrimonio"] is None or r["aum"] is None:
+            _emit(r["share_class_key"], "patrimonio_vs_mens_aum",
+                  r["patrimonio"], "fondtrim.patrimonio", r["aum"],
+                  "fondmens.aum@month_end", "skipped_missing",
+                  "one side absent (missing element or no observed day)")
+        elif r["codigo_divisa"] != "EUR":
+            _emit(r["share_class_key"], "patrimonio_vs_mens_aum",
+                  r["patrimonio"], "fondtrim.patrimonio", r["aum"],
+                  "fondmens.aum@month_end", "skipped_currency",
+                  f"class currency {r['codigo_divisa']} != MENS EUR")
+        else:
+            _emit(r["share_class_key"], "patrimonio_vs_mens_aum",
+                  r["patrimonio"], "fondtrim.patrimonio", r["aum"],
+                  "fondmens.aum@month_end", "comparable", None)
+
+    # 2. PDV total_patrimonio vs sum of TRIM class patrimonios
+    if have_p:
+        con.execute(
+            "SELECT p.compartment_key, p.total_patrimonio,"
+            " p.codigo_divisa_iic, sum(q.patrimonio) AS trim_sum,"
+            " count(DISTINCT q.codigo_divisa) AS n_currencies,"
+            " max(q.codigo_divisa) AS one_currency"
+            " FROM patrimony p"
+            " LEFT JOIN quarterly q"
+            " ON q.compartment_key = p.compartment_key"
+            " AND q.period = p.period"
+            " WHERE p.period = ?"
+            " GROUP BY p.compartment_key, p.total_patrimonio,"
+            " p.codigo_divisa_iic"
+            " ORDER BY p.compartment_key", [period])
+        for r in _rows(con):
+            if r["total_patrimonio"] is None or r["trim_sum"] is None:
+                _emit(r["compartment_key"], "total_vs_trim_class_sum",
+                      r["total_patrimonio"],
+                      "fondpatrimdisvar.total_patrimonio",
+                      r["trim_sum"], "sum(fondtrim.patrimonio)",
+                      "skipped_missing", None)
+            elif (r["codigo_divisa_iic"] is None
+                  or r["n_currencies"] != 1
+                  or r["one_currency"] != r["codigo_divisa_iic"]):
+                _emit(r["compartment_key"], "total_vs_trim_class_sum",
+                      r["total_patrimonio"],
+                      "fondpatrimdisvar.total_patrimonio",
+                      r["trim_sum"], "sum(fondtrim.patrimonio)",
+                      "skipped_currency",
+                      "class currencies do not uniformly equal IIC currency")
+            else:
+                _emit(r["compartment_key"], "total_vs_trim_class_sum",
+                      r["total_patrimonio"],
+                      "fondpatrimdisvar.total_patrimonio",
+                      r["trim_sum"], "sum(fondtrim.patrimonio)",
+                      "comparable", None)
+
+        # 3. PDV total_patrimonio vs sum of MENS month-end AUM (EUR)
+        con.execute(
+            "SELECT p.compartment_key, p.total_patrimonio,"
+            " p.codigo_divisa_iic, sum(m.aum) AS mens_sum"
+            " FROM patrimony p"
+            " LEFT JOIN mens_eom m"
+            " ON m.compartment_key = p.compartment_key"
+            " WHERE p.period = ?"
+            " GROUP BY p.compartment_key, p.total_patrimonio,"
+            " p.codigo_divisa_iic"
+            " ORDER BY p.compartment_key", [period])
+        for r in _rows(con):
+            if r["total_patrimonio"] is None or r["mens_sum"] is None:
+                _emit(r["compartment_key"], "total_vs_mens_aum_sum",
+                      r["total_patrimonio"],
+                      "fondpatrimdisvar.total_patrimonio",
+                      r["mens_sum"], "sum(fondmens.aum@month_end)",
+                      "skipped_missing", None)
+            elif r["codigo_divisa_iic"] != "EUR":
+                _emit(r["compartment_key"], "total_vs_mens_aum_sum",
+                      r["total_patrimonio"],
+                      "fondpatrimdisvar.total_patrimonio",
+                      r["mens_sum"], "sum(fondmens.aum@month_end)",
+                      "skipped_currency",
+                      f"IIC currency {r['codigo_divisa_iic']} != MENS EUR")
+            else:
+                _emit(r["compartment_key"], "total_vs_mens_aum_sum",
+                      r["total_patrimonio"],
+                      "fondpatrimdisvar.total_patrimonio",
+                      r["mens_sum"], "sum(fondmens.aum@month_end)",
+                      "comparable", None)
+
+    summary: dict[str, int] = {}
+    for r in rows:
+        summary[r["state"]] = summary.get(r["state"], 0) + 1
+    return {
+        "period": period,
+        "tolerance_rel": tolerance_rel,
+        "comparisons": rows,
+        "summary": summary,
+        "note": "derived comparison only — equality not required; "
+                "cutoff/currency bases differ legitimately",
+    }
+
+
 def dataset_info(root: Path | str) -> dict:
     root = Path(root)
     con = _con(root)
@@ -650,6 +841,20 @@ def dataset_info(root: Path | str) -> dict:
                 " SELECT aum_state FROM daily UNION ALL"
                 " SELECT investors_state FROM daily)"
                 " GROUP BY state").fetchall()}
+    if "quarterly" in tables:
+        out["quarterly_periods"] = [r[0] for r in con.execute(
+            "SELECT DISTINCT period FROM quarterly ORDER BY 1").fetchall()]
+        out["quarterly_per_period"] = _rows(con.execute(
+            "SELECT period, count(*) AS metrics,"
+            " count(DISTINCT share_class_key) AS share_classes"
+            " FROM quarterly GROUP BY period ORDER BY period"))
+    if "patrimony" in tables:
+        out["patrimony_periods"] = [r[0] for r in con.execute(
+            "SELECT DISTINCT period FROM patrimony ORDER BY 1").fetchall()]
+        out["patrimony_per_period"] = _rows(con.execute(
+            "SELECT period, count(*) AS records,"
+            " count(DISTINCT compartment_key) AS compartments"
+            " FROM patrimony GROUP BY period ORDER BY period"))
     if "quality" in tables:
         out["quality_states"] = {
             r[0]: r[1] for r in con.execute(
