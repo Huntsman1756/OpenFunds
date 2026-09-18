@@ -106,7 +106,18 @@ def update_period(
         content_type=payload.content_type,
         data=payload.data,
     )
+    return export_artifact(store, dataset_root, artifact, is_new=is_new)
 
+
+def export_artifact(
+    store: ArtifactStore,
+    dataset_root: Path | str,
+    artifact: SourceArtifact,
+    *,
+    is_new: bool = False,
+) -> UpdateResult:
+    """Export canonical tables from a stored artifact — no network."""
+    period = artifact.period
     manifest_path = Path(dataset_root) / "manifests" / f"{period}.json"
     manifest: dict = {}
     if manifest_path.exists():
@@ -293,3 +304,110 @@ def update_period(
             "fondpatrimdisvar_present", False),
         fondderi_present=manifest.get("fondderi_present", False),
     )
+
+
+def _month_range(first: str, last: str) -> list[str]:
+    """Inclusive 'YYYY-MM' sequence."""
+    y, m = int(first[:4]), int(first[5:])
+    y2, m2 = int(last[:4]), int(last[5:])
+    out = []
+    while (y, m) <= (y2, m2):
+        out.append(f"{y:04d}-{m:02d}")
+        m += 1
+        if m == 13:
+            y, m = y + 1, 1
+    return out
+
+
+class _IndexCachingClient(CnmvClient):
+    """list_months memoized per year across a backfill run; downloads
+    delegate unchanged to the wrapped hardened client."""
+
+    def __init__(self, inner: CnmvClient) -> None:
+        self._inner = inner
+        self._cache: dict[int, dict[int, str]] = {}
+        self.request_delay = inner.request_delay
+
+    def list_months(self, year: int) -> dict[int, str]:
+        if year not in self._cache:
+            self._cache[year] = self._inner.list_months(year)
+        return self._cache[year]
+
+    def download_zip(self, url: str):  # noqa: ANN201
+        return self._inner.download_zip(url)
+
+
+def backfill_periods(
+    store: ArtifactStore,
+    dataset_root: Path | str,
+    first: str,
+    last: str,
+    *,
+    client: CnmvClient | None = None,
+) -> dict:
+    """G9-A2 — chronological, resumable monthly backfill.
+
+    Per period, exactly one of:
+    - manifest complete + artifact present  -> "already_complete"
+      (no network at all);
+    - artifact stored but export incomplete -> "exported_from_local"
+      (no network; export_artifact is itself a no-op if complete);
+    - otherwise                            -> update_period (network).
+
+    Per-period failures are isolated and reported, never silent.
+    """
+    import time as _time
+
+    from cnmv_iic.errors import CnmvIicError
+
+    inner = client or CnmvClient()
+    caching = _IndexCachingClient(inner)
+    results: list[dict] = []
+    for period in _month_range(first, last):
+        prior = store.latest_for_period(period)
+        manifest_path = Path(dataset_root) / "manifests" / f"{period}.json"
+        manifest: dict = {}
+        if manifest_path.exists():
+            manifest = json.loads(manifest_path.read_text("utf-8"))
+        entry: dict = {"period": period}
+        try:
+            if prior is not None and manifest.get("registry_fingerprint"):
+                entry["status"] = "already_complete"
+                entry["registry_fingerprint"] = manifest[
+                    "registry_fingerprint"]
+            elif prior is not None and store.raw_path(prior).exists():
+                res = export_artifact(store, dataset_root, prior)
+                entry["status"] = (
+                    "exported_from_local" if res.exported
+                    else "already_complete")
+                entry["artifact"] = prior.source_id
+                entry["registry_fingerprint"] = res.registry_fingerprint
+                entry["funds"] = res.funds
+            else:
+                res = update_period(store, dataset_root, period,
+                                    client=caching)
+                entry["status"] = (
+                    "downloaded" if res.artifact_new
+                    else "exported_from_local" if res.exported
+                    else "already_complete")
+                entry["artifact"] = res.artifact.source_id
+                entry["registry_fingerprint"] = res.registry_fingerprint
+                entry["funds"] = res.funds
+                _time.sleep(inner.request_delay)
+        except CnmvIicError as exc:
+            entry["status"] = "failed"
+            entry["error"] = str(exc)
+        results.append(entry)
+    return {
+        "first": first,
+        "last": last,
+        "attempted": len(results),
+        "downloaded": sum(1 for r in results
+                          if r["status"] == "downloaded"),
+        "exported_from_local": sum(1 for r in results
+                                   if r["status"] == "exported_from_local"),
+        "already_complete": sum(1 for r in results
+                                if r["status"] == "already_complete"),
+        "failed": [r for r in results if r["status"] == "failed"],
+        "periods": results,
+    }

@@ -13,7 +13,7 @@ import typer
 
 from cnmv_iic.artifacts.store import ArtifactStore
 from cnmv_iic.errors import CnmvIicError
-from cnmv_iic.ingest import update_period
+from cnmv_iic.ingest import backfill_periods, update_period
 from cnmv_iic.provider_ingest import (
     ingest_firds_fulins,
     ingest_gleif_golden,
@@ -125,6 +125,27 @@ def update(
         },
         json_out,
     )
+
+
+@app.command()
+def backfill(
+    from_period: Annotated[str, typer.Option(
+        "--from", help="First publication period YYYY-MM")],
+    to_period: Annotated[str, typer.Option(
+        "--to", help="Last publication period YYYY-MM")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """G9-A2 — chronological resumable monthly backfill.
+
+    Artifact present + export complete -> no network; artifact stored
+    but unexported -> export from local bytes; otherwise download via
+    the hardened client. Per-period failures are isolated."""
+    root = data_dir or _data_dir()
+    out = _run(lambda: backfill_periods(
+        ArtifactStore(root / "artifacts"), root / "dataset",
+        from_period, to_period))
+    _emit(out, json_out)
 
 
 @app.command(name="ingest-provider")
