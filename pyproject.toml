@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cnmv-iic"
+version = "0.1.0"
+description = "Open, reproducible, provenance-preserving data infrastructure for Spanish collective investment schemes (IIC), built on official CNMV dissemination files."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "cnmv-iic contributors" }]
+keywords = ["cnmv", "investment-funds", "iic", "open-data", "parquet"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "lxml>=5.0",
+    "pyarrow>=15.0",
+    "duckdb>=0.10.0",
+    "typer>=0.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+cnmv-iic = "cnmv_iic.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "S", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+# S608: all interpolated SQL fragments are fixed column names or local glob
+# paths built from --data-dir; every query value is a bound parameter.
+"src/cnmv_iic/query.py" = ["S608"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["cnmv_iic"]
+mypy_path = "src"
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

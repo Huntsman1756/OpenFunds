@@ -1,0 +1,11 @@
+# Local research evidence (downloaded CNMV bytes, third-party clones) — never publish
+.research/
+data/
+.tmp-live/
+__pycache__/
+*.pyc
+.venv/
+.idea/
+.vscode/
+*.duckdb
+*.egg-info/
