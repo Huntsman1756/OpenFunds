@@ -65,6 +65,16 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
                 f"CREATE VIEW {table} AS "
                 f"SELECT * FROM read_parquet('{glob}', hive_partitioning=true)"
             )
+    # G7-D instrument evidence — partitioned by (provider, retrieval):
+    # an API retrieval date, never a provider-issued snapshot
+    for table in ("instrument_observations", "instrument_candidates"):
+        if (root / table).exists():
+            glob = str(root / table / "provider=*" / "retrieval=*"
+                       / "*.parquet")
+            con.execute(
+                f"CREATE VIEW {table} AS "
+                f"SELECT * FROM read_parquet('{glob}', hive_partitioning=true)"
+            )
     return con
 
 
@@ -1968,6 +1978,44 @@ def lei_evidence(root: Path | str, lei: str) -> dict:
         "ORDER BY provider_snapshot_date DESC, exception_category",
         [lei]))
     return out
+
+
+def instrument_evidence(
+    root: Path | str, isin: str,
+) -> dict:
+    """G7-D OpenFIGI instrument evidence for one ISIN — instrument
+    symbology, not issuer resolution. Observations carry every provider
+    result row verbatim (figi/composite/share-class kept distinct).
+    """
+    isin = isin.strip().upper()
+    state = classify_isin(isin)
+    if state is not IsinState.VALID:
+        raise NotFoundError(
+            f"identifier {isin!r} is {state.value}, not a valid ISIN — "
+            f"no instrument evidence lookup attempted")
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "instrument_observations" not in tables:
+        return {"isin": isin, "observations": [],
+                "note": "no instrument evidence loaded — run "
+                        "`cnmv-iic ingest-openfigi` first"}
+    obs = _rows(con.execute(
+        "SELECT * FROM instrument_observations WHERE isin = ? "
+        "ORDER BY campaign DESC", [isin]))
+    if obs and "instrument_candidates" in tables:
+        ids = [o["observation_id"] for o in obs]
+        ph = ",".join("?" * len(ids))
+        cands = _rows(con.execute(
+            f"SELECT * FROM instrument_candidates "
+            f"WHERE observation_id IN ({ph}) "
+            f"ORDER BY observation_id, result_index", ids))
+        by_obs: dict[str, list] = {}
+        for c in cands:
+            by_obs.setdefault(c["observation_id"], []).append(c)
+        for o in obs:
+            o["results"] = by_obs.get(o["observation_id"], [])
+    return {"isin": isin, "observations": obs}
 
 
 def dataset_info(root: Path | str) -> dict:

@@ -164,3 +164,44 @@ RESIDENT_GOVERNMENT_ENTITY, INTERNATIONAL_ORGANIZATION, securitization
 FUNDs. `relationship_semantics` is therefore recorded verbatim as
 `firds_field5_issuer_or_venue_operator` — never normalized to
 `isin_issuer_to_lei`.
+
+## OpenFIGI transport review (G7-D0)
+
+### Candidates evaluated
+
+| Project | License | Activity | Verdict |
+|---|---|---|---|
+| `tlouarn/pyopenfigi` | MIT | PyPI 0.1.0 (2023-04); GitHub active 2026-05 | **REFERENCE_ONLY** |
+
+`pyopenfigi` wraps `/v3/mapping` in Pydantic models and preserves
+request->response order. Reviewed for G7-D and not vendored: our
+contract needs deterministic batch composition, immutable raw
+request/response artifacts with sha256, checkpoint/resume, and
+documented rate-limit pacing — none of which a thin POST wrapper
+provides. The transport is ~150 LOC of stdlib `urllib` behind an
+injectable `Poster` protocol, consistent with the project's
+zero-extra-dependency policy (lxml/pyarrow/duckdb/typer only).
+
+### Measured API contract (G7-D0, anonymous tier)
+
+- `POST /v3/mapping` with `[{"idType":"ID_ISIN","idValue":...}]`.
+- Response is a JSON array in request order — verified per batch:
+  `len(response) == len(request)` enforced fail-closed, any deviation
+  rejects the batch.
+- Per-job payload shapes observed: `{"data": [...]}` (0+ rows),
+  `{"warning": "No identifier found."}` -> `no_match`,
+  `{"error": ...}` -> `provider_error`.
+- Result row fields (verbatim): `figi`, `name`, `ticker`, `exchCode`,
+  `compositeFIGI`, `securityType`, `marketSector`, `shareClassFIGI`,
+  `securityType2`, `securityDescription`.
+- Rate limits anonymous: 10 jobs/request, 25 requests/minute — paced
+  from the documented limit; `ratelimit-*`/`Retry-After` headers
+  honoured on 429; bounded exponential backoff on 5xx.
+
+### Measured FIGI hierarchy (see contract.md §10 for full numbers)
+
+`figi` (venue-level) / `compositeFIGI` (per-market aggregation) /
+`shareClassFIGI` (cross-venue instrument family) are three different
+levels — kept verbatim, never collapsed to one instrument id.
+`shareClassFIGI` is absent (null) on some venue rows of the same ISIN:
+a null-vs-value mix is a provider quirk, not a second family.

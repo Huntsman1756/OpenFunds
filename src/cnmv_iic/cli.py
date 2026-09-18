@@ -18,6 +18,7 @@ from cnmv_iic.provider_ingest import (
     ingest_firds_fulins,
     ingest_gleif_golden,
     ingest_gleif_isin_lei,
+    ingest_openfigi,
 )
 from cnmv_iic.query import (
     class_observation_summary,
@@ -247,6 +248,115 @@ def ingest_gleif_golden_cmd(
             "relationship_types": list(result.relationship_types),
             "relationship_exceptions": result.relationship_exceptions,
             "evidence_fingerprint": result.evidence_fingerprint,
+        },
+        json_out,
+    )
+
+
+@app.command(name="fetch-openfigi")
+def fetch_openfigi_cmd(
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Fetch the corpus ISIN universe through OpenFIGI /v3/mapping.
+
+    Deterministic batches (sorted ISINs, 10 jobs/request anonymous /
+    100 with OPENFIGI_API_KEY) whose raw request/response bytes are
+    stored as immutable artifacts under
+    ``dataset/provider_raw/openfigi/<retrieval-date>/batches/``.
+    Resuming skips completed batches — nothing is re-requested or
+    overwritten. Respects documented rate limits and 429/5xx handling.
+    """
+    from datetime import UTC, datetime
+
+    from cnmv_iic.openfigi_client import (
+        _ANON_MIN_INTERVAL,
+        _KEY_MIN_INTERVAL,
+        BATCH_SIZE_ANON,
+        BATCH_SIZE_KEY,
+        RateLimiter,
+        UrllibPoster,
+        run_campaign,
+    )
+    from cnmv_iic.provider_ingest import _corpus_isin_universe
+
+    root = data_dir or _data_dir()
+    dataset = root / "dataset"
+    isins = sorted(_run(lambda: _corpus_isin_universe(dataset)))
+    campaign = datetime.now(UTC).date().isoformat()
+    bdir = dataset / "provider_raw" / "openfigi" / campaign / "batches"
+    bdir.mkdir(parents=True, exist_ok=True)
+    api_key = os.environ.get("OPENFIGI_API_KEY") or None
+    keyed = api_key is not None
+    outcomes = _run(lambda: run_campaign(
+        bdir, isins,
+        poster=UrllibPoster(api_key=api_key),
+        limiter=RateLimiter(
+            _KEY_MIN_INTERVAL if keyed else _ANON_MIN_INTERVAL),
+        batch_size=BATCH_SIZE_KEY if keyed else BATCH_SIZE_ANON,
+        retrieved_at=lambda: datetime.now(UTC).isoformat(),
+        on_progress=lambda d, t: typer.echo(
+            f"{d}/{t} batches", err=True) if d % 100 == 0 or d == t
+        else None))
+    counts: dict[str, int] = {}
+    for o in outcomes:
+        counts[o.status] = counts.get(o.status, 0) + 1
+    _emit(
+        {
+            "campaign": campaign,
+            "batches_dir": str(bdir),
+            "universe_isins": len(isins),
+            "batches": len(outcomes),
+            "api_key": "env-provided" if keyed else "anonymous",
+            **counts,
+        },
+        json_out,
+    )
+
+
+@app.command(name="ingest-openfigi")
+def ingest_openfigi_cmd(
+    campaign_dir: Annotated[Path | None, typer.Option(
+        help="Campaign dir (default: latest under provider_raw/"
+             "openfigi)")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Export a stored OpenFIGI campaign into the evidence tables.
+
+    Pure local function of the stored batch artifacts — re-running is
+    byte-deterministic and never calls the API. Universe ISINs with no
+    stored job become ``provider_error`` observations: an incomplete
+    campaign is visible, never silently partial.
+    """
+    root = data_dir or _data_dir()
+    dataset = root / "dataset"
+    if campaign_dir is None:
+        base = dataset / "provider_raw" / "openfigi"
+        campaigns = sorted(
+            p for p in base.glob("*") if p.is_dir()) if base.exists() else []
+        if not campaigns:
+            typer.echo(
+                "error: no OpenFIGI campaign under "
+                f"{base} — run `cnmv-iic fetch-openfigi` first", err=True)
+            raise typer.Exit(1)
+        campaign_dir = campaigns[-1]
+    result = _run(lambda: ingest_openfigi(dataset, campaign_dir))
+    _emit(
+        {
+            "provider": result.provider,
+            "campaign": result.campaign,
+            "batches": result.batches,
+            "exported": result.exported,
+            "universe_isins": result.universe_isins,
+            "observations": result.observations,
+            "matched_single": result.matched_single,
+            "matched_multi": result.matched_multi,
+            "no_match": result.no_match,
+            "provider_error": result.provider_error,
+            "invalid_response": result.invalid_response,
+            "candidates": result.candidates,
+            "instrument_fingerprint": result.instrument_fingerprint,
         },
         json_out,
     )

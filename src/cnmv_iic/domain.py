@@ -787,6 +787,82 @@ class CandidateEvidence:
 
 
 # ---------------------------------------------------------------------------
+# G7-D — OpenFIGI instrument evidence. A DIFFERENT domain from issuer
+# resolution: security -> instrument symbology, not security -> legal
+# entity. OpenFIGI is a live API (no dated snapshot artifact), so
+# ``retrieved_at`` is the only temporal anchor and the temporal
+# semantics say so explicitly.
+# ---------------------------------------------------------------------------
+
+TEMPORAL_SEMANTICS_API = "current_api_enrichment_of_historical_security"
+
+
+class InstrumentState(StrEnum):
+    """Per-observation outcome for instrument mapping. ``matched_multi``
+    is NOT ambiguity by definition: venue FIGIs under one composite/
+    share-class FIGI are a normal OpenFIGI result shape."""
+
+    MATCHED_SINGLE = "matched_single"      # exactly one result row
+    MATCHED_MULTI = "matched_multi"        # >1 result rows (usually venues)
+    NO_MATCH = "no_match"                  # provider warning: not found
+    PROVIDER_ERROR = "provider_error"      # per-job provider error payload
+    INVALID_RESPONSE = "invalid_response"  # response violated the contract
+
+
+@dataclass(frozen=True)
+class InstrumentObservation:
+    """One OpenFIGI mapping answer for one ISIN in one retrieval campaign.
+
+    Grain: (isin, provider, retrieval_campaign). There is no
+    provider_snapshot_date — the API is live; the campaign id is the
+    retrieval date and is never presented as a provider-issued snapshot.
+    """
+
+    observation_id: str             # "openfigi/<campaign>/<isin>"
+    isin: str                       # upstream-gated to isin_state=valid
+    provider: str                   # "openfigi"
+    provider_dataset: str           # "openfigi-mapping-v3"
+    campaign: str                   # retrieval date "YYYY-MM-DD"
+    state: InstrumentState
+    result_count: int
+    holding_periods: tuple[str, ...]  # corpus periods where ISIN observed
+    temporal_semantics: str         # TEMPORAL_SEMANTICS_API constant
+    retrieved_at: str               # per-batch retrieval timestamp
+    batch_id: str                   # sha256 of the ordered request jobs
+    batch_job_index: int            # 1-based job position inside the batch
+    request_sha256: str
+    response_sha256: str
+    parser: str
+    parser_version: str
+
+
+@dataclass(frozen=True)
+class InstrumentCandidate:
+    """One OpenFIGI result row for an observation.
+
+    The three FIGI levels are kept verbatim and distinct —
+    venue ``figi`` != ``composite_figi`` != ``share_class_figi`` — so
+    multi-venue multiplicity is preserved, not collapsed into a single
+    instrument id. All descriptive fields are provider-verbatim.
+    """
+
+    observation_id: str
+    result_index: int               # 1-based within the job's data array
+    figi: str | None
+    composite_figi: str | None
+    share_class_figi: str | None
+    name: str | None
+    ticker: str | None
+    exch_code: str | None
+    security_type: str | None
+    security_type2: str | None
+    market_sector: str | None
+    security_description: str | None
+    provider_record_locator: str    # "<batch_id>#job=<i>/data=<j>"
+    raw_json: str                   # verbatim provider result row
+
+
+# ---------------------------------------------------------------------------
 # G7-B — GLEIF Level-1 entity + Level-2 relationship/exception evidence.
 # Evidence only: relationship types are verbatim GLEIF vocabulary, never
 # collapsed to a generic "parent". Absence of an RR record is NOT absence

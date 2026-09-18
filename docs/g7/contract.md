@@ -317,3 +317,137 @@ letters carry corpus ISINs) ✓  24 all 271 subset conflicts reproduced
 
 No canonical issuer, no conflict winner, no umbrella/subfund
 adjudication — that remains G7-E work.
+
+## 10. G7-D implemented — OpenFIGI instrument evidence (campaign 2026-09-18)
+
+Instrument domain, NOT issuer resolution: `security -> instrument
+symbology` evidence in separate `instrument_observations` /
+`instrument_candidates` tables — never `resolution_candidate` with a
+FIGI pretending to be an LEI.
+
+OpenFIGI is a LIVE API: no dated snapshot artifact exists, so the
+partition key is `retrieval=<campaign>` (an API retrieval date, never
+presented as a provider-issued snapshot) and
+`temporal_semantics = current_api_enrichment_of_historical_security`.
+
+Acquisition (G7-D1, `cnmv_iic.openfigi_client`):
+
+```text
+valid ISINs sorted -> deterministic 10-job batches (anonymous tier)
+batch_id = sha256(endpoint + ordered jobs)
+each POST stored immutably: provider_raw/openfigi/<campaign>/batches/
+    <batch_id>.zip  {request.json, response.json, meta.json}
+    meta: request/response sha256, ratelimit-* headers, retrieved_at
+resume = existing batch artifact -> skip (no re-request, no overwrite)
+len(response) == len(request) enforced per batch (positional order)
+429 -> ratelimit-reset/Retry-After wait; 5xx -> bounded exp backoff
+OPENFIGI_API_KEY optional env only (throughput, never semantics/files)
+```
+
+Per-job payload -> state (no result row silently discarded):
+
+```text
+{"data": [1 row]}    -> matched_single
+{"data": [N rows]}   -> matched_multi   (venue multiplicity is normal)
+{"warning": ...}     -> no_match
+{"error": ...}       -> provider_error
+other/absent job     -> invalid_response / provider_error
+```
+
+Measured FIGI hierarchy (corpus probe, see live numbers below):
+
+```text
+figi            venue-level        N per ISIN is normal
+compositeFIGI   per-market         >1 non-null per ISIN is normal
+shareClassFIGI  instrument family  never >1 NON-NULL per ISIN measured;
+                                   some venue rows omit it (null-vs-
+                                   value mix = provider quirk, not a
+                                   second family)
+```
+
+All three kept verbatim — multi-venue multiplicity is evidence shape,
+not ambiguity; coherence is derivable from shareClassFIGI, never
+asserted by collapsing fields.
+
+### Live result (corpus: 25,660 valid ISINs, campaign 2026-09-18)
+
+```text
+batches:         2,566 (10 jobs each, anonymous tier) — 0 failed,
+                 0 retried batches lost; ~106 min paced at 25 req/min
+observations:    25,660   matched_single 16,004 (62.4%)
+                          matched_multi   6,791 (26.5%)
+                          no_match        2,865 (11.2%)
+                          provider_error / invalid_response: 0
+candidates:      545,976 result rows preserved verbatim
+                 max 296 venue FIGIs for one ISIN (DE0007100000)
+fingerprint:     de3568e70a0a44adcf68a02eeebb0a4f1e4ce8b45ebc791069b3993900fccaaa
+```
+
+FIGI hierarchy measured on the full corpus (6,791 multi-result ISINs):
+
+```text
+one non-null shareClassFIGI:        6,757  (99.5% of multi)
+all-null shareClassFIGI:               33
+>1 non-null shareClassFIGI:             1  JE00B8DFY052 (WisdomTree
+                                          Physical Gold EUR Hdg, 47
+                                          rows, 2 genuine families —
+                                          preserved, not adjudicated)
+>1 non-null compositeFIGI:          6,623  (per-market aggregation —
+                                          normal, not ambiguity)
+null-vs-value shareClassFIGI mix:   3,160  (provider quirk: some venue
+                                          rows omit the field)
+>1 securityType2:                        15
+>1 marketSector:                          2
+>1 name:                              1,187 (cosmetic venue variance)
+```
+
+Cross-provider matrix (any issuer LEI evidence x OpenFIGI):
+
+```text
+issuer yes / openfigi yes   15,128
+issuer no  / openfigi yes    7,667   instrument rescued where no
+                                     LEI evidence exists (XS/LU gap)
+issuer yes / openfigi no       410
+neither                      2,455   the true dark residual (9.6%)
+any evidence                23,205/25,660 (90.4%)
+```
+
+Coverage by ISIN prefix — OpenFIGI fills exactly GLEIF's structural
+gap; domestic ES is its weak side:
+
+```text
+XS 96.7%  LU 87.2%  DE 96.6%  IT 95.5%  JP 96.6%  FR 91.6%
+IE 92.5%  US 92.2%  CA 90.0%  BE 94.8%  GB 77.6%  ES 61.4%
+```
+
+By holding period: 2012-03 79.7% · 2025-12 94.0% — still
+current-enrichment, never as-of-holding identity.
+
+Bug fixed during build (pre-live): transport-level failures
+(timeout/conn reset) were treated as campaign-fatal; they are now
+retriable per batch like 5xx, bounded — covered by two tests.
+
+### Gates — all 25 hold
+
+1–2 valid ISINs only, exact ID_ISIN ✓  3–5 no search/filter/name
+fallback ✓  6 pyopenfigi reviewed, REFERENCE_ONLY (oss-review) ✓
+7 deterministic batches ✓  8 raw request/response + sha256 retained
+✓  9 resume skips completed (verified: rerun re-requested nothing) ✓
+10–12 ratelimit-* headers honoured, 429 reset wait, bounded 5xx
+backoff ✓  13 positional cardinality validated per batch (0
+mismatches in 2,566) ✓  14 0/1/N preserved ✓  15 multi-venue not
+auto-ambiguity (matched_multi, coherence derivable) ✓  16 three FIGI
+levels distinct ✓  17 no issuer inference from OpenFIGI ✓  18
+retrieved_at vs snapshot distinguished (retrieval= partition,
+provider_snapshot_date: null) ✓  19 re-export byte-identical
+fingerprint ✓  20 new campaign = new partition ✓  21 GLEIF/FIRDS
+untouched ✓  22 G1–G7-C fingerprints byte-identical (3258f662… /
+d4e9a027… / da1806fe…) ✓  23 full corpus measured (25,660, not
+extrapolated) ✓  24 XS/LU/ES/US stratification reported above ✓
+25 zero provider responses discarded (545,976 rows = every job's
+every result; the 2,865 warnings are no_match observations) ✓
+
+G7 evidence stack is now complete: CNMV universe -> GLEIF issuer
+candidates + FIRDS issuer/operator candidates + GLEIF entity/
+relationship context + OpenFIGI instrument symbology. Next: G7-E
+adjudication over this evidence — never inside a provider adapter.

@@ -554,3 +554,84 @@ def ingest_firds_fulins(
         universe_isins=manifest["universe_isins"],
         resolution_fingerprint=manifest["resolution_fingerprint"],
     )
+
+
+# ---------------------------------------------------------------------------
+# G7-D — OpenFIGI instrument evidence. Acquisition is campaign-based raw
+# evidence (openfigi_client); this step is a pure local function of the
+# stored batch artifacts — re-running it is byte-deterministic.
+# ---------------------------------------------------------------------------
+
+OPENFIGI_PAGE = "https://www.openfigi.com/api/documentation"
+
+
+@dataclass(frozen=True)
+class OpenFigiIngestResult:
+    provider: str
+    campaign: str
+    batches: int
+    exported: bool
+    observations: int
+    matched_single: int
+    matched_multi: int
+    no_match: int
+    provider_error: int
+    invalid_response: int
+    candidates: int
+    universe_isins: int
+    instrument_fingerprint: str | None
+
+
+def ingest_openfigi(
+    dataset_root: Path | str,
+    campaign_dir: Path | str,
+) -> OpenFigiIngestResult:
+    """Export a stored OpenFIGI campaign into the evidence tables.
+
+    Reads every batch artifact under ``<campaign_dir>/batches``; the
+    campaign id is the directory name (retrieval date). Universe ISINs
+    without a stored job become ``provider_error`` observations — an
+    incomplete campaign is visible, never silently partial.
+    """
+    from cnmv_iic.adapters import openfigi as openfigi_adapter
+    from cnmv_iic.openfigi_client import iter_campaign
+    from cnmv_iic.storage import write_instrument_evidence
+
+    dataset_root = Path(dataset_root)
+    campaign_dir = Path(campaign_dir)
+    campaign = campaign_dir.name
+    batches = iter_campaign(campaign_dir / "batches")
+    if not batches:
+        raise NotFoundError(
+            f"no OpenFIGI batch artifacts under {campaign_dir}/batches")
+
+    universe = _corpus_isin_universe(dataset_root)
+    observations, candidates = openfigi_adapter.build_observations(
+        universe, batches, campaign=campaign)
+    manifest = write_instrument_evidence(
+        dataset_root,
+        provider=openfigi_adapter.PROVIDER,
+        campaign=campaign,
+        observations=observations,
+        candidates=candidates,
+        manifest_extra={
+            "batches": len(batches),
+            "batch_ids": sorted(b.batch_id for b in batches),
+            "provider_dataset": openfigi_adapter.PROVIDER_DATASET,
+        },
+    )
+    return OpenFigiIngestResult(
+        provider=openfigi_adapter.PROVIDER,
+        campaign=campaign,
+        batches=len(batches),
+        exported=True,
+        observations=manifest["observations"],
+        matched_single=manifest.get("matched_single", 0),
+        matched_multi=manifest.get("matched_multi", 0),
+        no_match=manifest.get("no_match", 0),
+        provider_error=manifest.get("provider_error", 0),
+        invalid_response=manifest.get("invalid_response", 0),
+        candidates=manifest["candidates"],
+        universe_isins=manifest["universe_isins"],
+        instrument_fingerprint=manifest["instrument_fingerprint"],
+    )

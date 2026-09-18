@@ -28,6 +28,8 @@ from cnmv_iic.domain import (
     CompartmentDerivativeOperation,
     CompartmentPatrimonySnapshot,
     FundRecord,
+    InstrumentCandidate,
+    InstrumentObservation,
     LegalEntityObservation,
     PortfolioSnapshot,
     RelationshipExceptionObservation,
@@ -1040,6 +1042,149 @@ def write_provider_resolution(
         manifest.update(manifest_extra)
     (root / "manifests").mkdir(parents=True, exist_ok=True)
     mname = f"resolution_{provider}_{snapshot_date}.json"
+    with open(root / "manifests" / mname, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=1, sort_keys=True)
+    return manifest
+
+
+# ---------------------------------------------------------------------------
+# G7-D — OpenFIGI instrument evidence (separate domain from issuer
+# resolution; retrieval-campaign partitioned, no provider snapshot)
+# ---------------------------------------------------------------------------
+
+INSTRUMENT_OBSERVATIONS_SCHEMA = pa.schema([
+    ("observation_id", pa.string()),         # openfigi/<campaign>/<isin>
+    ("isin", pa.string()),
+    ("provider", pa.string()),               # openfigi
+    ("provider_dataset", pa.string()),       # openfigi-mapping-v3
+    ("campaign", pa.string()),               # retrieval date YYYY-MM-DD
+    ("state", pa.string()),                  # matched_single|matched_multi|...
+    ("result_count", pa.int32()),
+    ("holding_periods", pa.string()),        # JSON array of corpus YYYY-MM
+    ("temporal_semantics", pa.string()),
+    ("retrieved_at", pa.string()),
+    ("batch_id", pa.string()),               # sha256 of ordered request jobs
+    ("batch_job_index", pa.int32()),
+    ("request_sha256", pa.string()),
+    ("response_sha256", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+INSTRUMENT_CANDIDATES_SCHEMA = pa.schema([
+    ("observation_id", pa.string()),
+    ("result_index", pa.int32()),            # 1-based in provider data array
+    ("figi", pa.string()),
+    ("composite_figi", pa.string()),
+    ("share_class_figi", pa.string()),
+    ("name", pa.string()),
+    ("ticker", pa.string()),
+    ("exch_code", pa.string()),
+    ("security_type", pa.string()),
+    ("security_type2", pa.string()),
+    ("market_sector", pa.string()),
+    ("security_description", pa.string()),
+    ("provider_record_locator", pa.string()),  # <batch>#job=<i>/data=<j>
+    ("raw_json", pa.string()),
+])
+
+
+def instrument_observation_rows(
+    obs: list[InstrumentObservation],
+) -> list[dict]:
+    rows = []
+    for o in sorted(obs, key=lambda o: o.observation_id):
+        rows.append({
+            "observation_id": o.observation_id,
+            "isin": o.isin,
+            "provider": o.provider,
+            "provider_dataset": o.provider_dataset,
+            "campaign": o.campaign,
+            "state": o.state.value,
+            "result_count": o.result_count,
+            "holding_periods": json.dumps(sorted(o.holding_periods)),
+            "temporal_semantics": o.temporal_semantics,
+            "retrieved_at": o.retrieved_at,
+            "batch_id": o.batch_id,
+            "batch_job_index": o.batch_job_index,
+            "request_sha256": o.request_sha256,
+            "response_sha256": o.response_sha256,
+            "parser": o.parser,
+            "parser_version": o.parser_version,
+        })
+    return rows
+
+
+def instrument_candidate_rows(
+    cands: list[InstrumentCandidate],
+) -> list[dict]:
+    rows = []
+    for c in sorted(cands, key=lambda c: (c.observation_id,
+                                          c.result_index)):
+        rows.append({
+            "observation_id": c.observation_id,
+            "result_index": c.result_index,
+            "figi": c.figi,
+            "composite_figi": c.composite_figi,
+            "share_class_figi": c.share_class_figi,
+            "name": c.name,
+            "ticker": c.ticker,
+            "exch_code": c.exch_code,
+            "security_type": c.security_type,
+            "security_type2": c.security_type2,
+            "market_sector": c.market_sector,
+            "security_description": c.security_description,
+            "provider_record_locator": c.provider_record_locator,
+            "raw_json": c.raw_json,
+        })
+    return rows
+
+
+def write_instrument_evidence(
+    dataset_root: Path | str,
+    *,
+    provider: str,
+    campaign: str,
+    observations: list[InstrumentObservation],
+    candidates: list[InstrumentCandidate],
+    manifest_extra: dict | None = None,
+) -> dict:
+    """Write instrument evidence partitioned by (provider, retrieval).
+
+    Partition key is ``retrieval=<campaign>`` — an API retrieval date,
+    never a provider-issued snapshot. A new campaign creates a NEW
+    partition (append-only). Returns the provider manifest.
+    """
+    root = Path(dataset_root)
+    orow = instrument_observation_rows(observations)
+    crow = instrument_candidate_rows(candidates)
+    if orow:
+        _write_table(
+            orow, INSTRUMENT_OBSERVATIONS_SCHEMA,
+            root / "instrument_observations" / f"provider={provider}"
+            / f"retrieval={campaign}" / "part-0.parquet")
+    if crow:
+        _write_table(
+            crow, INSTRUMENT_CANDIDATES_SCHEMA,
+            root / "instrument_candidates" / f"provider={provider}"
+            / f"retrieval={campaign}" / "part-0.parquet")
+    counts: dict[str, int] = {}
+    for o in observations:
+        counts[o.state.value] = counts.get(o.state.value, 0) + 1
+    manifest = {
+        "provider": provider,
+        "campaign": campaign,
+        "provider_snapshot_date": None,   # live API — no snapshot exists
+        "observations": len(orow),
+        **counts,
+        "candidates": len(crow),
+        "universe_isins": len(observations),
+        "instrument_fingerprint": canonical_fingerprint(orow, crow),
+    }
+    if manifest_extra:
+        manifest.update(manifest_extra)
+    (root / "manifests").mkdir(parents=True, exist_ok=True)
+    mname = f"instrument_{provider}_{campaign}.json"
     with open(root / "manifests" / mname, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1, sort_keys=True)
     return manifest
