@@ -28,6 +28,7 @@ from cnmv_iic.query import (
     derivative_reconciliation,
     fund_info,
     funds_by_institution,
+    funds_exposed_to,
     funds_holding,
     identity_events,
     lei_evidence,
@@ -467,6 +468,30 @@ def lei(
     root = data_dir or _data_dir()
     _emit(_run(lambda: lei_evidence(root / "dataset", lei_value)),
           json_out)
+
+
+@app.command(name="funds-exposed-to")
+def funds_exposed_to_cmd(
+    lei_value: Annotated[str, typer.Argument(help="20-char ISO-17442 LEI")],
+    period: Annotated[str, typer.Option(help="Holdings period YYYY-MM")],
+    evidence: Annotated[str, typer.Option(
+        help="all-resolved | corroborated | single-source")] = "all-resolved",
+    positions: Annotated[bool, typer.Option(
+        "--positions", help="include position-row detail")] = False,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Portfolio owners reporting positions resolved to this issuer LEI.
+
+    known_resolved_value is a LOWER BOUND — unresolved securities can
+    never be proven not to belong to the issuer, so issuer-specific
+    completeness is always null; only the period-universe coverage is
+    a ratio. Conflicts never enter issuer totals."""
+    root = data_dir or _data_dir()
+    out = _run(lambda: funds_exposed_to(
+        root / "dataset", lei_value, period, evidence=evidence,
+        include_positions=positions))
+    _emit(out, json_out)
 
 
 @app.command()

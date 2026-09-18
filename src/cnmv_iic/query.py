@@ -25,7 +25,7 @@ from cnmv_iic.domain import (
     ShareClass,
     classify_isin,
 )
-from cnmv_iic.errors import NotFoundError
+from cnmv_iic.errors import NotFoundError, ParseError
 from cnmv_iic.identity import ShareClassRow, diff_registry, resolve
 
 _ISIN_LIKE = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
@@ -2174,6 +2174,265 @@ def resolution_conflicts(
         kinds[k] = kinds.get(k, 0) + 1
     return {"version": v, "bundle": b, "conflicts": len(rows),
             "context_kinds": dict(sorted(kinds.items())), "rows": rows}
+
+
+_RESOLVED_STATES = ("corroborated", "gleif_only", "firds_only")
+_SINGLE_SOURCE_STATES = ("gleif_only", "firds_only")
+_EXCLUDED_STATES = ("conflict", "multiple_candidates",
+                    "no_authoritative_match")
+
+
+def funds_exposed_to(
+    root: Path | str, lei: str, period: str, *,
+    version: str | None = None, bundle: str | None = None,
+    evidence: str = "all-resolved",
+    include_positions: bool = False,
+) -> dict:
+    """G8-1 — every portfolio owner reporting positions whose ISIN
+    resolves to ``lei``, at position-row grain.
+
+    Semantics: ``known_resolved_value`` is a LOWER BOUND — unresolved
+    securities cannot be proven not to belong to this issuer, so
+    issuer-specific completeness is always ``null``, never a ratio.
+    Only ``resolved_lei`` participates; conflict/multiple/no_match
+    never enter issuer totals. A conflict row naming this LEI as a
+    *candidate* is reported separately and stays excluded.
+    """
+    lei = lei.strip().upper()
+    if not _LEI_RE.match(lei):
+        raise NotFoundError(
+            f"{lei!r} is not a well-formed LEI (20 chars, "
+            f"ISO-17442) — no exposure lookup attempted")
+    if evidence not in ("all-resolved", "corroborated", "single-source"):
+        raise ParseError(
+            f"unknown evidence filter {evidence!r} — expected "
+            "all-resolved | corroborated | single-source")
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "positions" not in tables:
+        return {"note": "no positions loaded — run `cnmv-iic update` first"}
+    if "security_resolution" not in tables:
+        return {"note": "no adjudication derived — run "
+                        "`cnmv-iic adjudicate` first"}
+    key = _latest_adjudication_key(con, version, bundle)
+    if key is None:
+        return {"note": "no adjudication partitions found"}
+    v, b = key
+    periods = [r[0] for r in con.execute(
+        "SELECT DISTINCT period FROM positions ORDER BY 1").fetchall()]
+    if period not in periods:
+        raise NotFoundError(
+            f"period {period!r} not loaded — available: {periods}")
+
+    states = {
+        "all-resolved": _RESOLVED_STATES,
+        "corroborated": ("corroborated",),
+        "single-source": _SINGLE_SOURCE_STATES,
+    }[evidence]
+
+    owners = _rows(con.execute(
+        """SELECT p.fund_key AS owner_key,
+            COUNT(*) AS position_rows,
+            COUNT(DISTINCT p.isin_raw) AS unique_isins,
+            SUM(p.reported_market_value) AS signed_value,
+            SUM(ABS(p.reported_market_value)) AS absolute_value,
+            SUM(ABS(p.reported_market_value)) FILTER
+                (s.state = 'corroborated') AS corroborated_value,
+            SUM(ABS(p.reported_market_value)) FILTER
+                (s.state = 'gleif_only') AS gleif_only_value,
+            SUM(ABS(p.reported_market_value)) FILTER
+                (s.state = 'firds_only') AS firds_only_value
+        FROM positions p
+        JOIN security_resolution s
+          ON s.isin = p.isin_raw AND s.version = ? AND s.bundle = ?
+        WHERE p.period = ? AND p.isin_state = 'valid'
+          AND s.resolved_lei = ?
+          AND s.state IN (SELECT * FROM unnest(?))
+        GROUP BY p.fund_key ORDER BY absolute_value DESC""",
+        [v, b, period, lei, list(states)]))
+
+    # period-specific identity from FONDREGISTRO — the name as it was
+    # reported at that period, never the current name
+    if "compartments" in tables and "funds" in tables:
+        names = {r["compartment_key"]: r for r in _rows(con.execute(
+            """SELECT c.compartment_key, c.denominacion
+                AS compartment_name, c.fund_key,
+                f.denominacion AS fund_name, f.gestora_denominacion
+                AS manager_name
+            FROM compartments c
+            LEFT JOIN funds f
+              ON f.fund_key = c.fund_key AND f.period = c.period
+            WHERE c.period = ?""", [period]))}
+        for o in owners:
+            n = names.get(o["owner_key"], {})
+            o["fund_key"] = n.get("fund_key")
+            o["fund_name"] = n.get("fund_name")
+            o["compartment_name"] = n.get("compartment_name")
+            o["manager_name"] = n.get("manager_name")
+
+    # conflict/multiple rows naming this LEI as a CANDIDATE — visible
+    # but never inside known_resolved_value. Conflicts carry the pair in
+    # gleif/firds_candidate_lei; multiple_candidates keeps the full list
+    # in resolution_candidates behind the observation ids.
+    _has_cand = "resolution_candidates" in tables
+    cexcl_sql = (
+        """SELECT COUNT(*), SUM(ABS(p.reported_market_value))
+        FROM positions p
+        JOIN security_resolution s
+          ON s.isin = p.isin_raw AND s.version = ? AND s.bundle = ?
+        WHERE p.period = ? AND p.isin_state = 'valid'
+          AND ((s.state = 'conflict'
+                AND (s.gleif_candidate_lei = ?
+                     OR s.firds_candidate_lei = ?))
+               OR (s.state = 'multiple_candidates'
+                   AND EXISTS (
+                       SELECT 1 FROM resolution_candidates rc
+                       WHERE rc.candidate_lei = ?
+                         AND (rc.observation_id =
+                                  s.gleif_observation_id
+                              OR rc.observation_id =
+                                     s.firds_observation_id))))"""
+        if _has_cand else
+        """SELECT COUNT(*), SUM(ABS(p.reported_market_value))
+        FROM positions p
+        JOIN security_resolution s
+          ON s.isin = p.isin_raw AND s.version = ? AND s.bundle = ?
+        WHERE p.period = ? AND p.isin_state = 'valid'
+          AND s.state = 'conflict'
+          AND (s.gleif_candidate_lei = ? OR s.firds_candidate_lei = ?)""")
+    cexcl = con.execute(
+        cexcl_sql,
+        [v, b, period, lei, lei] + ([lei] if _has_cand else [])).fetchone()
+    if cexcl is None:
+        raise ParseError("funds_exposed_to: empty conflict aggregate")
+
+    # period-universe coverage — the only ratio we can compute honestly
+    cov = con.execute(
+        """SELECT
+            SUM(ABS(p.reported_market_value)) FILTER
+                (s.resolved_lei IS NOT NULL) AS resolved_v,
+            SUM(ABS(p.reported_market_value)) FILTER
+                (s.state = 'corroborated') AS corroborated_v,
+            SUM(ABS(p.reported_market_value)) FILTER
+                (s.state IN ('conflict', 'multiple_candidates',
+                             'no_authoritative_match')) AS unresolved_v,
+            SUM(ABS(p.reported_market_value)) FILTER
+                (p.isin_state <> 'valid' AND p.kind = 'security')
+                AS invalid_v,
+            SUM(ABS(p.reported_market_value)) FILTER
+                (p.kind = 'cash') AS cash_v,
+            SUM(ABS(p.reported_market_value)) FILTER
+                (p.isin_state = 'valid') AS valid_v,
+            SUM(ABS(p.reported_market_value)) AS total_v
+        FROM positions p
+        LEFT JOIN security_resolution s
+          ON s.isin = p.isin_raw AND p.isin_state = 'valid'
+         AND s.version = ? AND s.bundle = ?
+        WHERE p.period = ?""", [v, b, period]).fetchone()
+    if cov is None:
+        raise ParseError("funds_exposed_to: empty coverage aggregate")
+    (res_v, cor_v, unres_v, inv_v, cash_v, valid_v, total_v) = cov
+
+    entity = None
+    if "legal_entities" in tables:
+        rows = _rows(con.execute(
+            "SELECT legal_name, entity_category, legal_jurisdiction "
+            "FROM legal_entities WHERE lei = ? "
+            "ORDER BY provider_snapshot_date DESC LIMIT 1", [lei]))
+        entity = rows[0] if rows else None
+
+    def _d(x: Decimal | None) -> Decimal:
+        return x if x is not None else Decimal("0")
+
+    total_rows = sum(o["position_rows"] for o in owners)
+    uniq = len({r[0] for r in con.execute(
+        "SELECT DISTINCT p.isin_raw FROM positions p "
+        "JOIN security_resolution s ON s.isin = p.isin_raw "
+        "AND s.version = ? AND s.bundle = ? WHERE p.period = ? "
+        "AND p.isin_state = 'valid' AND s.resolved_lei = ? "
+        "AND s.state IN (SELECT * FROM unnest(?))",
+        [v, b, period, lei, list(states)]).fetchall()})
+    corr_v_t = sum((_d(o["corroborated_value"]) for o in owners),
+                   Decimal("0"))
+    gleif_v_t = sum((_d(o["gleif_only_value"]) for o in owners),
+                    Decimal("0"))
+    firds_v_t = sum((_d(o["firds_only_value"]) for o in owners),
+                    Decimal("0"))
+    signed_t = sum((o["signed_value"] for o in owners), Decimal("0"))
+    abs_t = sum((o["absolute_value"] for o in owners), Decimal("0"))
+
+    out: dict = {
+        "lei": lei,
+        "issuer": entity or {"lei": lei},
+        "period": period,
+        "evidence": evidence,
+        "adjudication": {"version": v, "bundle": b},
+        "totals": {
+            "known_resolved_value": abs_t,
+            "corroborated_value": corr_v_t,
+            "gleif_only_value": gleif_v_t,
+            "firds_only_value": firds_v_t,
+            "single_source_value": gleif_v_t + firds_v_t,
+            "signed_market_value": signed_t,
+            "absolute_market_value": abs_t,
+            "conflict_candidate_value_excluded": _d(cexcl[1]),
+            "conflict_candidate_rows_excluded": cexcl[0],
+            "position_rows": total_rows,
+            "unique_isins": uniq,
+            "portfolio_owners": len(owners),
+        },
+        "coverage": {
+            "scope": "period_security_universe",
+            "resolution_ratio": (
+                float(_d(res_v) / _d(valid_v)) if _d(valid_v) else None),
+            "corroborated_ratio": (
+                float(_d(cor_v) / _d(valid_v)) if _d(valid_v) else None),
+            "unattributed_universe": {
+                "unresolved_value": _d(unres_v),
+                "invalid_masked_no_isin_value": _d(inv_v),
+                "cash_value": _d(cash_v),
+                "all_reported_value": _d(total_v),
+            },
+            "issuer_specific_completeness": None,
+            "issuer_exposure_semantics": "known_lower_bound",
+            "completeness_reason": (
+                "unresolved securities cannot be proven not to belong "
+                "to this issuer"),
+        },
+        "owners": owners,
+    }
+    if not owners:
+        out["note"] = ("valid LEI — no reported position resolves to it "
+                       f"in {period}; the issuer may still be present "
+                       "inside unattributed universe value")
+    if include_positions:
+        out["positions"] = _rows(con.execute(
+            """SELECT p.fund_key AS owner_key, p.isin_raw,
+                p.descripcion_valor, p.reported_market_value,
+                p.isin_state, s.state AS resolution_state,
+                s.resolved_lei,
+                CASE s.state
+                    WHEN 'corroborated' THEN 'corroborated'
+                    WHEN 'gleif_only' THEN 'single_source'
+                    WHEN 'firds_only' THEN 'single_source'
+                    ELSE 'unresolved'
+                END AS evidence_strength,
+                p.xml_locator
+            FROM positions p
+            JOIN security_resolution s
+              ON s.isin = p.isin_raw AND s.version = ? AND s.bundle = ?
+            WHERE p.period = ? AND p.isin_state = 'valid'
+              AND s.resolved_lei = ?
+              AND s.state IN (SELECT * FROM unnest(?))
+            ORDER BY ABS(p.reported_market_value) DESC""",
+            [v, b, period, lei, list(states)]))
+    from cnmv_iic.storage import canonical_fingerprint
+    out["fingerprint"] = canonical_fingerprint(
+        [{"lei": lei, "period": period, "evidence": evidence,
+          "version": v, "bundle": b, **out["totals"]}],
+        owners)
+    return out
 
 
 def dataset_info(root: Path | str) -> dict:
