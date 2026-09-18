@@ -14,8 +14,19 @@ from cnmv_iic.domain import (
     RegistryJoinState,
     UnderlierClass,
 )
-from cnmv_iic.errors import ParseError
+from cnmv_iic.errors import NotFoundError, ParseError
+from cnmv_iic.query import (
+    derivative_operations,
+    derivative_reconciliation,
+)
 from cnmv_iic.storage import write_period
+from tests.test_fondpatrimdisvar import (
+    _comp,
+    _pdv,
+)
+from tests.test_fondpatrimdisvar import (
+    _parse as _parse_pdv,
+)
 from tests.test_identity import _records
 
 _REG_KEYS = frozenset({"FI:9:0", "FI:9:1"})
@@ -211,3 +222,102 @@ def test_parquet_roundtrip(tmp_path, artifact):
         [str(tmp_path / "dataset" / "derivative_coverage"
              / "period=2025-12" / "part-0.parquet")])
     assert con.fetchone() == (1,)
+
+
+# -- G5-C/D: coverage reconciliation + derivatives accessor ------------------
+
+
+def _root(tmp_path, artifact, deri_xml=None, pdv_xml=None):
+    ops, cov = _parse(artifact, deri_xml)
+    write_period(
+        tmp_path / "dataset", [], period="2025-12", artifact_id="a",
+        records=_records(artifact),
+        derivatives=ops, derivative_coverage=cov,
+        patrimony=_parse_pdv(artifact, pdv_xml) if pdv_xml else None)
+    return tmp_path / "dataset"
+
+
+def test_reconciliation_coverage_match(artifact, tmp_path):
+    deri_xml = _deri(entities=[("FI", "9", "EUR", [
+        ("0", [_op()]), ("1", [_op()])])])
+    root = _root(tmp_path, artifact, deri_xml=deri_xml,
+                 pdv_xml=_pdv("202512", [("9", _comp("0")),
+                                         ("9", _comp("1"))]))
+    out = derivative_reconciliation(root, "2025-12")
+    rows = {r["subject_key"]: r for r in out["coverage"]}
+    assert rows["FI:9:0"]["state"] == "match"
+    assert rows["FI:9:1"]["state"] == "match"
+    # coverage carries the operation count, not a value comparison
+    assert rows["FI:9:0"]["left_value"] == 1
+    assert "no value comparison" in rows["FI:9:0"]["note"]
+
+
+def test_reconciliation_missing_pdv_side(artifact, tmp_path):
+    # compartment in DERI coverage but absent from PDV -> honest state
+    deri_xml = _deri(entities=[("FI", "9", "EUR", [
+        ("0", [_op()]), ("1", [_op()])])])
+    root = _root(tmp_path, artifact, deri_xml=deri_xml,
+                 pdv_xml=_pdv("202512", [("9", _comp("1"))]))
+    out = derivative_reconciliation(root, "2025-12")
+    rows = {r["subject_key"]: r for r in out["coverage"]}
+    assert rows["FI:9:0"]["state"] == "missing_in_patrimony"
+    assert rows["FI:9:1"]["state"] == "match"
+
+
+def test_reconciliation_declares_not_comparable(artifact, tmp_path):
+    out = derivative_reconciliation(_root(tmp_path, artifact), "2025-12")
+    assert len(out["not_comparable"]) == 3
+    assert all("reason" in nc for nc in out["not_comparable"])
+    agg = out["aggregates"][0]
+    assert agg["compartment_key"] == "FI:9:0"
+    assert agg["n_operations"] == 1
+    assert agg["importe_sum_eur"] == Decimal("14594930.00")
+    assert "no counterpart" in agg["note"]
+
+
+def test_reconciliation_no_table_fails_closed(artifact, tmp_path):
+    write_period(tmp_path / "dataset", [], period="2025-12",
+                 artifact_id="a", records=_records(artifact))
+    with pytest.raises(NotFoundError):
+        derivative_reconciliation(tmp_path / "dataset", "2025-12")
+
+
+def test_derivatives_by_compartment(artifact, tmp_path):
+    meta, rows = derivative_operations(
+        _root(tmp_path, artifact), "FI:9:0", "2025-12")
+    assert meta["resolved_as"] == "exact_compartment"
+    r = rows[0]
+    assert r["compartment_key"] == "FI:9:0"
+    assert r["reporting_state"] == "reported"
+    op = r["operations"][0]
+    assert op["instrumento"] == "C/ FUTURO BOBL MAR 26"
+    assert op["side"] == "obligacion"
+    assert op["representation"] == "partially_structured"
+    assert op["provenance"]["xml_locator"].endswith(
+        "OperativaDerivados[1]")
+
+
+def test_derivatives_isin_resolves_owner(artifact, tmp_path):
+    meta, rows = derivative_operations(
+        _root(tmp_path, artifact), "ES0138841038", "2025-12")
+    assert meta["resolved_as"] == "exact_share_class"
+    assert [r["compartment_key"] for r in rows] == ["FI:9:0"]
+
+
+def test_derivatives_zero_ops_explicit_state(artifact, tmp_path):
+    xml = _deri(entities=[("FI", "9", "EUR", [("0", [])])])
+    _, rows = derivative_operations(
+        _root(tmp_path, artifact, deri_xml=xml), "FI:9:0", "2025-12")
+    r = rows[0]
+    assert r["n_operations"] == 0
+    assert r["reporting_state"] == "reported_no_derivatives"
+    assert r["operations"] == []               # no fabricated rows
+
+
+def test_derivatives_fund_covers_compartments(artifact, tmp_path):
+    xml = _deri(entities=[("FI", "9", "EUR", [
+        ("0", [_op()]), ("1", [])])])
+    _, rows = derivative_operations(
+        _root(tmp_path, artifact, deri_xml=xml), "FI:9", "2025-12")
+    assert [r["compartment_key"] for r in rows] == ["FI:9:0", "FI:9:1"]
+    assert rows[1]["reporting_state"] == "reported_no_derivatives"

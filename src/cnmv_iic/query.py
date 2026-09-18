@@ -807,6 +807,206 @@ def patrimony_reconciliation(
     }
 
 
+# -- G5-C: FONDDERI coverage reconciliation ---------------------------------
+
+
+def derivative_reconciliation(
+    root: Path | str, period: str,
+) -> dict:
+    """Coverage-level checks for FONDDERI — no value counterpart exists.
+
+    ``fondderi.importe`` is committed nominal in EUR (a stock), while
+    ``fondpatrimdisvar.resultados_derivados`` is a signed percentage
+    flow over average daily patrimonio; FONDTRIM carries class-level
+    metrics only; FONDCART's ``ClaseIF`` is geographic. All three
+    relations are therefore declared ``not_comparable`` — an honest
+    verdict, not a gap.
+    """
+    con = _con(root)
+    if not re.fullmatch(r"\d{4}-\d{2}", period):
+        raise NotFoundError(f"bad period {period!r} — expected YYYY-MM")
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "derivative_coverage" not in tables:
+        raise NotFoundError(
+            f"no FONDDERI data for {period} — "
+            "run `cnmv-iic update` for a cadence period")
+
+    rows: list[dict] = []
+    if "patrimony" in tables:
+        con.execute(
+            "SELECT c.compartment_key, c.n_operations,"
+            " c.registry_state, p.compartment_key IS NOT NULL AS in_pdv"
+            " FROM derivative_coverage c"
+            " LEFT JOIN patrimony p"
+            " ON p.compartment_key = c.compartment_key"
+            " AND p.period = c.period"
+            " WHERE c.period = ?"
+            " ORDER BY c.compartment_key", [period])
+        for r in _rows(con):
+            rows.append({
+                "subject_key": r["compartment_key"],
+                "metric": "derivative_reporting_vs_patrimony",
+                "left_value": r["n_operations"],
+                "left_source": "fondderi.coverage.n_operations",
+                "right_value": r["in_pdv"],
+                "right_source": "fondpatrimdisvar.presence",
+                "state": "match" if r["in_pdv"] else "missing_in_patrimony",
+                "registry_state": r["registry_state"],
+                "note": "coverage check only — no value comparison",
+            })
+
+    aggregates: list[dict] = []
+    if "derivatives" in tables:
+        con.execute(
+            "SELECT compartment_key, count(*) AS n_operations,"
+            " sum(importe) AS importe_sum_eur,"
+            " count(DISTINCT objetivo) AS n_objetivos"
+            " FROM derivatives WHERE period = ?"
+            " GROUP BY compartment_key ORDER BY compartment_key",
+            [period])
+        for r in _rows(con):
+            aggregates.append({
+                "compartment_key": r["compartment_key"],
+                "n_operations": r["n_operations"],
+                "importe_sum_eur": r["importe_sum_eur"],
+                "note": "informational aggregate — committed nominal "
+                        "in EUR; no counterpart field exists",
+            })
+
+    return {
+        "period": period,
+        "coverage": rows,
+        "aggregates": aggregates,
+        "not_comparable": [
+            {
+                "left": "fondderi.importe",
+                "right": "fondpatrimdisvar.resultados_derivados",
+                "reason": "committed nominal (EUR stock) vs signed % "
+                          "flow over average daily patrimonio — "
+                          "different semantics, never equated",
+            },
+            {
+                "left": "fondderi.importe",
+                "right": "fondtrim.*",
+                "reason": "FONDTRIM is share-class metrics — no "
+                          "derivative stock field exists",
+            },
+            {
+                "left": "fondderi.*",
+                "right": "fondcart.*",
+                "reason": "ClaseIF is geographic "
+                          "(INTERIOR/EXTERIOR/DUDOSAS) — cannot "
+                          "corroborate derivative positions",
+            },
+        ],
+        "note": "coverage reconciliation only — not_comparable is a "
+                "correct verdict, not a gap",
+    }
+
+
+# -- G5-D: FONDDERI accessor -------------------------------------------------
+
+
+def derivative_operations(
+    root: Path | str, identifier: str, period: str,
+) -> tuple[dict, list[dict]]:
+    """FONDDERI operation rows per compartment — verbatim evidence.
+
+    Resolution mirrors ``holdings``: fund/compartment keys and
+    share-class ISINs resolve to portfolio-owner compartments; one
+    result per compartment with its operation rows and the explicit
+    ``n_operations`` coverage state (0 = reported no derivatives).
+    """
+    con = _con(root)
+    if "derivative_coverage" not in {r[0] for r in con.execute(
+            "SELECT table_name FROM information_schema.tables").fetchall()}:
+        raise NotFoundError(
+            "no FONDDERI data in dataset — run `cnmv-iic update` first")
+    reg_period = _registry_period(con, period)
+    if reg_period is not None:
+        resolution = resolve(
+            identifier,
+            share_classes=_share_class_rows(con, reg_period),
+            funds=_fund_owners(con, reg_period),
+        )
+        owners = resolution.portfolio_owners
+        if not owners:
+            raise NotFoundError(
+                f"{identifier!r} does not resolve to any compartment:"
+                f" {resolution.kind.value}"
+                + (f" — {resolution.note}" if resolution.note else ""))
+        info = _resolution_info(resolution)
+    elif identifier.count(":") == 2:
+        owners, info = (identifier,), {
+            "requested_identifier": identifier,
+            "resolved_as": ResolutionKind.EXACT_COMPARTMENT.value,
+            "note": "resolved without registry data",
+        }
+    else:
+        raise NotFoundError(
+            f"cannot resolve {identifier!r}: derivatives require a "
+            "fund/compartment key or share-class ISIN")
+    con.execute(
+        "SELECT compartment_key, n_operations, registry_state"
+        " FROM derivative_coverage"
+        " WHERE period = ? AND compartment_key IN "
+        f"({','.join('?' * len(owners))}) ORDER BY compartment_key",
+        [period, *owners])
+    cov = {r["compartment_key"]: r for r in _rows(con)}
+    rows: list[dict] = []
+    if "derivatives" in {r[0] for r in con.execute(
+            "SELECT table_name FROM information_schema.tables").fetchall()}:
+        con.execute(
+            "SELECT * FROM derivatives"
+            " WHERE period = ? AND compartment_key IN "
+            f"({','.join('?' * len(owners))})"
+            " ORDER BY compartment_key, operation_index",
+            [period, *owners])
+        rows = _rows(con)
+    out = []
+    for ck in owners:
+        c = cov.get(ck)
+        ops = [r for r in rows if r["compartment_key"] == ck]
+        if c is None and not ops:
+            continue
+        out.append({
+            "compartment_key": ck,
+            "n_operations": c["n_operations"] if c else len(ops),
+            "reporting_state": (
+                "reported_no_derivatives" if (c and c["n_operations"] == 0)
+                else "reported"),
+            "registry_state": c["registry_state"] if c else None,
+            "operations": [{
+                "operation_index": r["operation_index"],
+                "descripcion": r["descripcion"],
+                "side": r["side"],
+                "underlier_class": r["underlier_class"],
+                "subyacente": r["subyacente"],
+                "instrumento": r["instrumento"],
+                "importe_eur": r["importe"],
+                "objetivo": r["objetivo"],
+                "representation": r["representation"],
+                "provenance": {
+                    "source_artifact_id": r["source_artifact_id"],
+                    "xml_locator": r["xml_locator"],
+                },
+            } for r in ops],
+        })
+    return info | {
+        "period": period,
+        "compartments": len(out),
+        "semantics": {
+            "importe_eur": "committed nominal in EUR (documented), "
+                           "signed; NOT in codigo_divisa_iic",
+            "subyacente/instrumento": "officially non-normalized text — "
+                                      "verbatim, never parsed",
+            "reporting_state": "reported_no_derivatives is an explicit "
+                               "source state, not absent data",
+        },
+    }, out
+
+
 # -- G4-D: FONDTRIM / FONDPATRIMDISVAR accessors -----------------------------
 
 _FEE_COLUMNS = (
@@ -1085,6 +1285,23 @@ def dataset_info(root: Path | str) -> dict:
             "SELECT period, count(*) AS records,"
             " count(DISTINCT compartment_key) AS compartments"
             " FROM patrimony GROUP BY period ORDER BY period"))
+    if "derivatives" in tables:
+        out["derivative_periods"] = [r[0] for r in con.execute(
+            "SELECT DISTINCT period FROM derivatives ORDER BY 1").fetchall()]
+        out["derivative_per_period"] = _rows(con.execute(
+            "SELECT period, count(*) AS operations,"
+            " count(DISTINCT compartment_key) AS compartments"
+            " FROM derivatives GROUP BY period ORDER BY period"))
+        out["derivative_representations"] = {
+            r[0]: r[1] for r in con.execute(
+                "SELECT representation, count(*) FROM derivatives"
+                " GROUP BY representation").fetchall()}
+    if "derivative_coverage" in tables:
+        out["derivative_coverage"] = _rows(con.execute(
+            "SELECT period, count(*) AS compartments,"
+            " sum(CASE WHEN n_operations = 0 THEN 1 ELSE 0 END)"
+            " AS zero_ops FROM derivative_coverage"
+            " GROUP BY period ORDER BY period"))
     if "quality" in tables:
         out["quality_states"] = {
             r[0]: r[1] for r in con.execute(

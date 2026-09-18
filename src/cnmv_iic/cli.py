@@ -18,6 +18,8 @@ from cnmv_iic.query import (
     class_observation_summary,
     daily_series,
     dataset_info,
+    derivative_operations,
+    derivative_reconciliation,
     fund_info,
     funds_by_institution,
     funds_holding,
@@ -368,12 +370,15 @@ def reconcile(
 ) -> None:
     """Cross-family patrimony comparison — derived, equality not required."""
     root = data_dir or _data_dir()
-    _emit(
-        _run(lambda: patrimony_reconciliation(
-            root / "dataset", period,
-            tolerance_rel=Decimal(str(tolerance)))),
-        json_out,
-    )
+    out = _run(lambda: patrimony_reconciliation(
+        root / "dataset", period,
+        tolerance_rel=Decimal(str(tolerance))))
+    try:
+        out["derivatives"] = derivative_reconciliation(
+            root / "dataset", period)
+    except CnmvIicError:
+        pass                                    # family absent — honest
+    _emit(out, json_out)
 
 
 @app.command()
@@ -445,6 +450,23 @@ def allocation(
     """
     root = data_dir or _data_dir()
     meta, rows = _run(lambda: patrimony_allocation(
+        root / "dataset", identifier, as_of))
+    _emit({"resolution": meta, "compartments_rows": rows}, json_out)
+
+
+@app.command()
+def derivatives(
+    identifier: Annotated[str, typer.Argument(
+        help="Fund/compartment key or share-class ISIN")],
+    as_of: Annotated[str, typer.Option(
+        help="period YYYY-MM")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """FONDDERI derivative operations per compartment — verbatim
+    evidence, never normalized."""
+    root = data_dir or _data_dir()
+    meta, rows = _run(lambda: derivative_operations(
         root / "dataset", identifier, as_of))
     _emit({"resolution": meta, "compartments_rows": rows}, json_out)
 
