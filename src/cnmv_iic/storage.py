@@ -23,6 +23,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from cnmv_iic.domain import (
+    CompartmentPatrimonySnapshot,
     FundRecord,
     PortfolioSnapshot,
     ShareClassDailyObservation,
@@ -195,6 +196,62 @@ QUARTERLY_SCHEMA = pa.schema([
     ("vocacion_inversora", pa.string()),
     ("clase_fondo", pa.string()),
     ("codigo_divisa_iic", pa.string()),
+    ("registry_state", pa.string()),
+    ("source_artifact_id", pa.string()),
+    ("source_sha256", pa.string()),
+    ("member_name", pa.string()),
+    ("member_sha256", pa.string()),
+    ("xml_locator", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+PATRIMONY_SCHEMA = pa.schema([
+    ("period", pa.string()),                 # observed_period YYYY-MM
+    ("compartment_key", pa.string()),        # = portfolio_owner_key
+    ("fund_key", pa.string()),
+    ("entity_type", pa.string()),
+    ("numero_registro", pa.string()),
+    ("numero_compartimento", pa.string()),
+    ("codigo_divisa_iic", pa.string()),      # unit of the stock fields
+    # ratios (turnover index)
+    ("indice_rotacion_cartera_actual", pa.decimal128(38, 2)),
+    ("indice_rotacion_cartera_anterior", pa.decimal128(38, 2)),
+    # stock — monetary, IIC currency
+    ("dp_inversiones_financieras", pa.decimal128(38, 2)),
+    ("cartera_interior", pa.decimal128(38, 2)),
+    ("cartera_exterior", pa.decimal128(38, 2)),
+    ("intereses_cartera", pa.decimal128(38, 2)),
+    ("inversiones_dudosas", pa.decimal128(38, 2)),
+    ("liquidez", pa.decimal128(38, 2)),
+    ("resto", pa.decimal128(38, 2)),
+    ("total_patrimonio", pa.decimal128(38, 2)),
+    ("patrimonio_fin_periodo_anterior", pa.decimal128(38, 2)),
+    ("patrimonio_fin_periodo_actual", pa.decimal128(38, 2)),
+    # flow — SIGNED % over avg daily patrimonio (NOT money)
+    ("suscripciones_reembolsos_netos", pa.decimal128(38, 2)),
+    ("beneficios_brutos_distribuidos", pa.decimal128(38, 2)),
+    ("rendimientos_netos", pa.decimal128(38, 2)),
+    ("rendimientos_gestion", pa.decimal128(38, 2)),
+    ("intereses", pa.decimal128(38, 2)),
+    ("dividendos", pa.decimal128(38, 2)),
+    ("resultados_renta_fija", pa.decimal128(38, 2)),
+    ("resultados_renta_variable", pa.decimal128(38, 2)),
+    ("resultados_depositos", pa.decimal128(38, 2)),
+    ("resultados_derivados", pa.decimal128(38, 2)),
+    ("resultados_iic", pa.decimal128(38, 2)),
+    ("otros_resultados", pa.decimal128(38, 2)),
+    ("otros_rendimientos", pa.decimal128(38, 2)),
+    ("gastos_repercutidos", pa.decimal128(38, 2)),
+    ("comision_gestion", pa.decimal128(38, 2)),
+    ("comision_depositario", pa.decimal128(38, 2)),
+    ("gastos_servicios_exteriores", pa.decimal128(38, 2)),
+    ("otros_gastos_gestion", pa.decimal128(38, 2)),
+    ("otros_gastos_repercutidos", pa.decimal128(38, 2)),
+    ("ingresos", pa.decimal128(38, 2)),
+    ("comisiones_descuento", pa.decimal128(38, 2)),
+    ("comisiones_retrocedidas", pa.decimal128(38, 2)),
+    ("otros_ingresos", pa.decimal128(38, 2)),
     ("registry_state", pa.string()),
     ("source_artifact_id", pa.string()),
     ("source_sha256", pa.string()),
@@ -495,6 +552,70 @@ def quarterly_rows(rows_in: list[ShareClassQuarterlyMetrics]) -> list[dict]:
     return rows
 
 
+def patrimony_rows(rows_in: list[CompartmentPatrimonySnapshot]) -> list[dict]:
+    rows = []
+    for m in rows_in:
+        p = m.provenance
+        rows.append({
+            "period": m.period,
+            "compartment_key": m.compartment_key,
+            "fund_key": m.fund_key,
+            "entity_type": m.entity_type,
+            "numero_registro": m.numero_registro,
+            "numero_compartimento": m.numero_compartimento,
+            "codigo_divisa_iic": m.codigo_divisa_iic,
+            "indice_rotacion_cartera_actual": m.indice_rotacion_cartera_actual,
+            "indice_rotacion_cartera_anterior":
+                m.indice_rotacion_cartera_anterior,
+            "dp_inversiones_financieras": m.dp_inversiones_financieras,
+            "cartera_interior": m.cartera_interior,
+            "cartera_exterior": m.cartera_exterior,
+            "intereses_cartera": m.intereses_cartera,
+            "inversiones_dudosas": m.inversiones_dudosas,
+            "liquidez": m.liquidez,
+            "resto": m.resto,
+            "total_patrimonio": m.total_patrimonio,
+            "patrimonio_fin_periodo_anterior":
+                m.patrimonio_fin_periodo_anterior,
+            "patrimonio_fin_periodo_actual": m.patrimonio_fin_periodo_actual,
+            "suscripciones_reembolsos_netos": m.suscripciones_reembolsos_netos,
+            "beneficios_brutos_distribuidos": m.beneficios_brutos_distribuidos,
+            "rendimientos_netos": m.rendimientos_netos,
+            "rendimientos_gestion": m.rendimientos_gestion,
+            "intereses": m.intereses,
+            "dividendos": m.dividendos,
+            "resultados_renta_fija": m.resultados_renta_fija,
+            "resultados_renta_variable": m.resultados_renta_variable,
+            "resultados_depositos": m.resultados_depositos,
+            "resultados_derivados": m.resultados_derivados,
+            "resultados_iic": m.resultados_iic,
+            "otros_resultados": m.otros_resultados,
+            "otros_rendimientos": m.otros_rendimientos,
+            "gastos_repercutidos": m.gastos_repercutidos,
+            "comision_gestion": m.comision_gestion,
+            "comision_depositario": m.comision_depositario,
+            "gastos_servicios_exteriores": m.gastos_servicios_exteriores,
+            "otros_gastos_gestion": m.otros_gastos_gestion,
+            "otros_gastos_repercutidos": m.otros_gastos_repercutidos,
+            "ingresos": m.ingresos,
+            "comisiones_descuento": m.comisiones_descuento,
+            "comisiones_retrocedidas": m.comisiones_retrocedidas,
+            "otros_ingresos": m.otros_ingresos,
+            "registry_state": m.registry_state.value,
+            "source_artifact_id": p.source_artifact_id,
+            "source_sha256": p.source_sha256,
+            "member_name": p.member_name,
+            "member_sha256": p.member_sha256,
+            "xml_locator": p.xml_locator,
+            "parser": p.parser,
+            "parser_version": p.parser_version,
+        })
+    rows.sort(key=lambda r: (
+        str(r["entity_type"]), str(r["numero_registro"]).zfill(12),
+        str(r["numero_compartimento"]).zfill(6)))
+    return rows
+
+
 def canonical_fingerprint(*row_sets: list[dict]) -> str:
     """SHA-256 over canonical row serialization — parquet-metadata independent."""
     h = sha256()
@@ -523,6 +644,7 @@ def write_period(
     records: list[FundRecord] | None = None,
     daily: list[ShareClassDailyObservation] | None = None,
     quarterly: list[ShareClassQuarterlyMetrics] | None = None,
+    patrimony: list[CompartmentPatrimonySnapshot] | None = None,
 ) -> dict:
     """Write period-partitioned parquet tables; return manifest.
 
@@ -530,6 +652,7 @@ def write_period(
     unchanged). ``registry_fingerprint`` covers the identity tables.
     ``daily_fingerprint`` covers the FONDMENS daily-observation table.
     ``quarterly_fingerprint`` covers the FONDTRIM quarterly-metrics table.
+    ``patrimony_fingerprint`` covers the FONDPATRIMDISVAR table.
     """
     root = Path(dataset_root)
 
@@ -590,6 +713,18 @@ def write_period(
             "quarterly_metrics": len(trow),
             "fondtrim_present": bool(trow),
             "quarterly_fingerprint": canonical_fingerprint(trow),
+        })
+
+    if patrimony is not None:
+        vrow = patrimony_rows(patrimony)
+        if vrow:
+            _write_table(
+                vrow, PATRIMONY_SCHEMA,
+                root / "patrimony" / f"period={period}" / "part-0.parquet")
+        manifest.update({
+            "patrimony_records": len(vrow),
+            "fondpatrimdisvar_present": bool(vrow),
+            "patrimony_fingerprint": canonical_fingerprint(vrow),
         })
 
     (root / "manifests").mkdir(parents=True, exist_ok=True)

@@ -326,7 +326,141 @@ class ShareClassDailyObservation:
 
 
 # ---------------------------------------------------------------------------
-# G4 — quarterly share-class metrics (FONDTRIM)
+# G4-B — compartment patrimony distribution/variation (FONDPATRIMDISVAR)
+# ---------------------------------------------------------------------------
+
+#: Unit basis of every FONDPATRIMDISVAR field (docs/g4/contract.md §3).
+#: The source record MIXES monetary stock fields with signed percentage
+#: flow fields — the distinction is contractual, not cosmetic.
+#:   monetary_iic_currency        -> units of CodigoDivisaIIC
+#:   pct_over_avg_daily_patrimonio -> % over the period's average daily
+#:                                   patrimonio; SIGNED (costs negative)
+#:   ratio                        -> turnover index [(C+V)-(S+R)]/PMD
+PDV_UNIT_BASIS: dict[str, str] = {
+    "indice_rotacion_cartera_actual": "ratio",
+    "indice_rotacion_cartera_anterior": "ratio",
+    "dp_inversiones_financieras": "monetary_iic_currency",
+    "cartera_interior": "monetary_iic_currency",
+    "cartera_exterior": "monetary_iic_currency",
+    "intereses_cartera": "monetary_iic_currency",
+    "inversiones_dudosas": "monetary_iic_currency",
+    "liquidez": "monetary_iic_currency",
+    "resto": "monetary_iic_currency",
+    "total_patrimonio": "monetary_iic_currency",
+    "patrimonio_fin_periodo_anterior": "monetary_iic_currency",
+    "patrimonio_fin_periodo_actual": "monetary_iic_currency",
+    "suscripciones_reembolsos_netos": "pct_over_avg_daily_patrimonio",
+    "beneficios_brutos_distribuidos": "pct_over_avg_daily_patrimonio",
+    "rendimientos_netos": "pct_over_avg_daily_patrimonio",
+    "rendimientos_gestion": "pct_over_avg_daily_patrimonio",
+    "intereses": "pct_over_avg_daily_patrimonio",
+    "dividendos": "pct_over_avg_daily_patrimonio",
+    "resultados_renta_fija": "pct_over_avg_daily_patrimonio",
+    "resultados_renta_variable": "pct_over_avg_daily_patrimonio",
+    "resultados_depositos": "pct_over_avg_daily_patrimonio",
+    "resultados_derivados": "pct_over_avg_daily_patrimonio",
+    "resultados_iic": "pct_over_avg_daily_patrimonio",
+    "otros_resultados": "pct_over_avg_daily_patrimonio",
+    "otros_rendimientos": "pct_over_avg_daily_patrimonio",
+    "gastos_repercutidos": "pct_over_avg_daily_patrimonio",
+    "comision_gestion": "pct_over_avg_daily_patrimonio",
+    "comision_depositario": "pct_over_avg_daily_patrimonio",
+    "gastos_servicios_exteriores": "pct_over_avg_daily_patrimonio",
+    "otros_gastos_gestion": "pct_over_avg_daily_patrimonio",
+    "otros_gastos_repercutidos": "pct_over_avg_daily_patrimonio",
+    "ingresos": "pct_over_avg_daily_patrimonio",
+    "comisiones_descuento": "pct_over_avg_daily_patrimonio",
+    "comisiones_retrocedidas": "pct_over_avg_daily_patrimonio",
+    "otros_ingresos": "pct_over_avg_daily_patrimonio",
+}
+
+
+@dataclass(frozen=True)
+class CompartmentPatrimonySnapshot:
+    """One (compartment, period) row from FONDPATRIMDISVAR.
+
+    Measured grain is compartment/fund-level — the file contains ZERO
+    ``Clase`` elements (docs/g4/contract.md). Keyed by the same
+    ``compartment_key`` FONDCART reports positions against.
+
+    Two unit classes coexist in one record — see ``PDV_UNIT_BASIS``:
+
+    - stock fields (``cartera_*``, ``liquidez``, ``resto``,
+      ``total_patrimonio``, ``patrimonio_fin_periodo_*``,
+      ``dp_inversiones_financieras``, ``intereses_cartera``,
+      ``inversiones_dudosas``): monetary, IIC denomination currency
+      (``codigo_divisa_iic``).
+    - flow/variation fields (``suscripciones_reembolsos_netos`` ..
+      ``otros_ingresos``): SIGNED percentages over the period's average
+      daily patrimonio — NOT money (verified: real values like -4.88 /
+      -0.95). Costs are negative contributions.
+    - ``indice_rotacion_cartera_*``: turnover ratio; ``_anterior`` refers
+      to the prior reporting period and is absent when none exists.
+
+    ``None`` = absent element (missing), never inferred. ``0`` is a
+    genuine observed value.
+    """
+
+    entity_type: str
+    numero_registro: str
+    numero_compartimento: str
+    codigo_divisa_iic: str | None          # entity-level, unit of stock fields
+    # ratios
+    indice_rotacion_cartera_actual: Decimal | None
+    indice_rotacion_cartera_anterior: Decimal | None
+    # stock — monetary, IIC currency
+    dp_inversiones_financieras: Decimal | None   # = CI+CE+IC+ID (G1 recon)
+    cartera_interior: Decimal | None
+    cartera_exterior: Decimal | None
+    intereses_cartera: Decimal | None
+    inversiones_dudosas: Decimal | None
+    liquidez: Decimal | None
+    resto: Decimal | None
+    total_patrimonio: Decimal | None
+    patrimonio_fin_periodo_anterior: Decimal | None
+    patrimonio_fin_periodo_actual: Decimal | None
+    # flow — signed % over avg daily patrimonio (NOT money)
+    suscripciones_reembolsos_netos: Decimal | None
+    beneficios_brutos_distribuidos: Decimal | None
+    rendimientos_netos: Decimal | None
+    rendimientos_gestion: Decimal | None
+    intereses: Decimal | None
+    dividendos: Decimal | None
+    resultados_renta_fija: Decimal | None
+    resultados_renta_variable: Decimal | None
+    resultados_depositos: Decimal | None
+    resultados_derivados: Decimal | None
+    resultados_iic: Decimal | None
+    otros_resultados: Decimal | None
+    otros_rendimientos: Decimal | None
+    gastos_repercutidos: Decimal | None
+    comision_gestion: Decimal | None
+    comision_depositario: Decimal | None
+    gastos_servicios_exteriores: Decimal | None
+    otros_gastos_gestion: Decimal | None
+    otros_gastos_repercutidos: Decimal | None
+    ingresos: Decimal | None
+    comisiones_descuento: Decimal | None
+    comisiones_retrocedidas: Decimal | None
+    otros_ingresos: Decimal | None
+    registry_state: RegistryJoinState
+    period: str                   # observed_period (YYYY-MM)
+    provenance: Provenance
+
+    @property
+    def compartment_key(self) -> str:
+        return compartment_key(
+            self.entity_type, self.numero_registro,
+            self.numero_compartimento,
+        )
+
+    @property
+    def fund_key(self) -> str:
+        return fund_key(self.entity_type, self.numero_registro)
+
+
+# ---------------------------------------------------------------------------
+# G4-A — quarterly share-class metrics (FONDTRIM)
 # ---------------------------------------------------------------------------
 
 
