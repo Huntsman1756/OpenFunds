@@ -75,6 +75,16 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
                 f"CREATE VIEW {table} AS "
                 f"SELECT * FROM read_parquet('{glob}', hive_partitioning=true)"
             )
+    # G7-E derived adjudication — partitioned by (version, bundle):
+    # append-only, multiple logical resolutions may coexist
+    for table in ("security_resolution", "instrument_family_resolution"):
+        if (root / table).exists():
+            glob = str(root / table / "version=*" / "bundle=*"
+                       / "*.parquet")
+            con.execute(
+                f"CREATE VIEW {table} AS "
+                f"SELECT * FROM read_parquet('{glob}', hive_partitioning=true)"
+            )
     return con
 
 
@@ -2016,6 +2026,124 @@ def instrument_evidence(
         for o in obs:
             o["results"] = by_obs.get(o["observation_id"], [])
     return {"isin": isin, "observations": obs}
+
+
+def _latest_adjudication_key(
+        con: duckdb.DuckDBPyConnection,
+        version: str | None, bundle: str | None,
+) -> tuple[str, str] | None:
+    """(version, bundle) of the most recent adjudication, or None."""
+    where = ""
+    params: list[str] = []
+    if version is not None:
+        where += " AND version = ?"
+        params.append(version)
+    if bundle is not None:
+        where += " AND bundle = ?"
+        params.append(bundle)
+    rows = con.execute(
+        "SELECT DISTINCT version, bundle, adjudicated_at "
+        "FROM security_resolution WHERE 1=1" + where
+        + " ORDER BY adjudicated_at DESC LIMIT 1", params).fetchall()
+    return (rows[0][0], rows[0][1]) if rows else None
+
+
+def security_resolution(
+    root: Path | str, isin: str, *,
+    version: str | None = None, bundle: str | None = None,
+) -> dict:
+    """Derived adjudication for one ISIN (G7-E) — issuer verdict +
+    instrument-family verdict over the pinned evidence bundle.
+
+    This is a DERIVED view: ``resolved_lei`` exists only for
+    corroborated / single-provider states; ``conflict`` always carries
+    ``resolved_lei = NULL`` plus a ``conflict_context`` explaining what
+    is known about the two asserted entities."""
+    isin = isin.strip().upper()
+    state = classify_isin(isin)
+    if state is not IsinState.VALID:
+        raise NotFoundError(
+            f"identifier {isin!r} is {state.value}, not a valid ISIN")
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "security_resolution" not in tables:
+        return {"isin": isin,
+                "note": "no adjudication derived — run "
+                        "`cnmv-iic adjudicate` first"}
+    key = _latest_adjudication_key(con, version, bundle)
+    if key is None:
+        return {"isin": isin, "note": "no adjudication partitions found"}
+    v, b = key
+    sec = _rows(con.execute(
+        "SELECT * FROM security_resolution WHERE isin = ? "
+        "AND version = ? AND bundle = ?", [isin, v, b]))
+    fam = _rows(con.execute(
+        "SELECT * FROM instrument_family_resolution WHERE isin = ? "
+        "AND version = ? AND bundle = ?", [isin, v, b]))
+    for s in sec:
+        if s.get("conflict_context_json"):
+            s["conflict_context"] = json.loads(s["conflict_context_json"])
+    return {"isin": isin, "version": v, "bundle": b,
+            "security": sec[0] if sec else None,
+            "instrument_family": fam[0] if fam else None}
+
+
+def resolution_coverage(
+    root: Path | str, *,
+    version: str | None = None, bundle: str | None = None,
+) -> dict:
+    """State distribution of the latest adjudication — full corpus."""
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "security_resolution" not in tables:
+        return {"note": "no adjudication derived — run "
+                        "`cnmv-iic adjudicate` first"}
+    key = _latest_adjudication_key(con, version, bundle)
+    if key is None:
+        return {"note": "no adjudication partitions found"}
+    v, b = key
+    sec = _rows(con.execute(
+        "SELECT state, COUNT(*) AS n FROM security_resolution "
+        "WHERE version = ? AND bundle = ? GROUP BY state "
+        "ORDER BY n DESC", [v, b]))
+    fam = _rows(con.execute(
+        "SELECT state, COUNT(*) AS n FROM instrument_family_resolution "
+        "WHERE version = ? AND bundle = ? GROUP BY state "
+        "ORDER BY n DESC", [v, b]))
+    return {"version": v, "bundle": b,
+            "security_states": sec, "family_states": fam}
+
+
+def resolution_conflicts(
+    root: Path | str, *,
+    version: str | None = None, bundle: str | None = None,
+) -> dict:
+    """All CONFLICT rows of the latest adjudication with parsed context —
+    the disagreement surface between the two authoritative sources."""
+    con = _con(root)
+    tables = {r[0] for r in con.execute(
+        "SELECT table_name FROM information_schema.tables").fetchall()}
+    if "security_resolution" not in tables:
+        return {"note": "no adjudication derived — run "
+                        "`cnmv-iic adjudicate` first"}
+    key = _latest_adjudication_key(con, version, bundle)
+    if key is None:
+        return {"note": "no adjudication partitions found"}
+    v, b = key
+    rows = _rows(con.execute(
+        "SELECT isin, gleif_candidate_lei, firds_candidate_lei, "
+        "conflict_context_json FROM security_resolution "
+        "WHERE state = 'conflict' AND version = ? AND bundle = ? "
+        "ORDER BY isin", [v, b]))
+    kinds: dict[str, int] = {}
+    for r in rows:
+        r["conflict_context"] = json.loads(r["conflict_context_json"])
+        k = r["conflict_context"]["kind"]
+        kinds[k] = kinds.get(k, 0) + 1
+    return {"version": v, "bundle": b, "conflicts": len(rows),
+            "context_kinds": dict(sorted(kinds.items())), "rows": rows}
 
 
 def dataset_info(root: Path | str) -> dict:

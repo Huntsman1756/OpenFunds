@@ -1378,3 +1378,134 @@ def read_period_fingerprint(dataset_root: Path | str, period: str) -> str | None
         return None
     fp = json.loads(mpath.read_text(encoding="utf-8")).get("dataset_fingerprint")
     return str(fp) if fp is not None else None
+
+
+# ---------------------------------------------------------------------------
+# G7-E — adjudication layer (DERIVED data over provider evidence, never
+# provider evidence itself). Partitioned by (version, bundle): a new
+# evidence bundle or a new rules version creates a new logical
+# resolution — append-only, never overwrite.
+# ---------------------------------------------------------------------------
+
+SECURITY_RESOLUTION_SCHEMA = pa.schema([
+    ("isin", pa.string()),
+    ("state", pa.string()),                  # corroborated|gleif_only|...
+    ("resolved_lei", pa.string()),           # NULL for conflict/multi/none
+    ("gleif_observation_id", pa.string()),
+    ("firds_observation_id", pa.string()),
+    ("gleif_candidate_lei", pa.string()),
+    ("firds_candidate_lei", pa.string()),
+    ("conflict_context_json", pa.string()),  # only for state=conflict
+    ("evidence_bundle_fingerprint", pa.string()),
+    ("adjudication_version", pa.string()),
+    ("temporal_semantics", pa.string()),
+    ("adjudicated_at", pa.string()),         # excluded from fingerprint
+])
+
+INSTRUMENT_FAMILY_SCHEMA = pa.schema([
+    ("isin", pa.string()),
+    ("state", pa.string()),                  # single|multiple|no_share_class|no_match
+    ("share_class_figi", pa.string()),       # set only when exactly 1
+    ("composite_figi_count", pa.int32()),
+    ("venue_figi_count", pa.int32()),
+    ("observation_id", pa.string()),
+    ("evidence_bundle_fingerprint", pa.string()),
+    ("adjudication_version", pa.string()),
+    ("temporal_semantics", pa.string()),
+    ("adjudicated_at", pa.string()),
+])
+
+
+def security_resolution_rows(res: list) -> list[dict]:
+    return [
+        {
+            "isin": r.isin,
+            "state": str(r.state),
+            "resolved_lei": r.resolved_lei,
+            "gleif_observation_id": r.gleif_observation_id,
+            "firds_observation_id": r.firds_observation_id,
+            "gleif_candidate_lei": r.gleif_candidate_lei,
+            "firds_candidate_lei": r.firds_candidate_lei,
+            "conflict_context_json": r.conflict_context_json,
+            "evidence_bundle_fingerprint": r.evidence_bundle_fingerprint,
+            "adjudication_version": r.adjudication_version,
+            "temporal_semantics": r.temporal_semantics,
+        }
+        for r in res
+    ]
+
+
+def instrument_family_rows(fams: list) -> list[dict]:
+    return [
+        {
+            "isin": r.isin,
+            "state": str(r.state),
+            "share_class_figi": r.share_class_figi,
+            "composite_figi_count": r.composite_figi_count,
+            "venue_figi_count": r.venue_figi_count,
+            "observation_id": r.observation_id,
+            "evidence_bundle_fingerprint": r.evidence_bundle_fingerprint,
+            "adjudication_version": r.adjudication_version,
+            "temporal_semantics": r.temporal_semantics,
+        }
+        for r in fams
+    ]
+
+
+def write_adjudication(
+    dataset_root: Path | str,
+    *,
+    version: str,
+    bundle_fingerprint: str,
+    resolutions: list,
+    families: list,
+    adjudicated_at: str,
+    manifest_extra: dict | None = None,
+) -> dict:
+    """Write one derived adjudication partitioned by (version, bundle).
+
+    ``adjudicated_at`` is written to every row but EXCLUDED from the
+    fingerprint — re-running the same version over the same bundle must
+    reproduce an identical fingerprint (deterministic fields only).
+    Partitions are write-once: an existing part file is left untouched.
+    """
+    root = Path(dataset_root)
+    srow = security_resolution_rows(resolutions)
+    frow = instrument_family_rows(families)
+    # fingerprint over deterministic fields — volatile stamped after
+    fp = canonical_fingerprint(srow, frow)
+    for row in srow:
+        row["adjudicated_at"] = adjudicated_at
+    for row in frow:
+        row["adjudicated_at"] = adjudicated_at
+    bkey = bundle_fingerprint[:16]
+    spath = (root / "security_resolution" / f"version={version}"
+             / f"bundle={bkey}" / "part-0.parquet")
+    fpath = (root / "instrument_family_resolution" / f"version={version}"
+             / f"bundle={bkey}" / "part-0.parquet")
+    if srow and not spath.exists():
+        _write_table(srow, SECURITY_RESOLUTION_SCHEMA, spath)
+    if frow and not fpath.exists():
+        _write_table(frow, INSTRUMENT_FAMILY_SCHEMA, fpath)
+
+    from collections import Counter
+
+    scounts = Counter(r["state"] for r in srow)
+    fcounts = Counter(r["state"] for r in frow)
+    manifest = {
+        "adjudication_version": version,
+        "evidence_bundle_fingerprint": bundle_fingerprint,
+        "adjudicated_at": adjudicated_at,
+        "securities": len(srow),
+        "instrument_families": len(frow),
+        "security_states": dict(sorted(scounts.items())),
+        "family_states": dict(sorted(fcounts.items())),
+        "adjudication_fingerprint": fp,
+    }
+    if manifest_extra:
+        manifest.update(manifest_extra)
+    (root / "manifests").mkdir(parents=True, exist_ok=True)
+    mname = f"adjudication_v{version}_{bkey}.json"
+    with open(root / "manifests" / mname, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=1, sort_keys=True)
+    return manifest

@@ -451,3 +451,141 @@ G7 evidence stack is now complete: CNMV universe -> GLEIF issuer
 candidates + FIRDS issuer/operator candidates + GLEIF entity/
 relationship context + OpenFIGI instrument symbology. Next: G7-E
 adjudication over this evidence — never inside a provider adapter.
+
+## 11. G7-E — adjudication layer (derived, never provider evidence)
+
+Adjudication is a DERIVED layer: it reads G7-A..D partitions plus the
+immutable raw artifacts already in the ArtifactStore, writes its own
+tables, and never modifies provider evidence. There is NO single
+provider snapshot date — the input is pinned as an EvidenceBundle:
+
+```text
+gleif_anna_isin_lei@2026-09-18#3258f662…
+gleif_golden@2026-09-18#d4e9a027…   (lei-cdf + rr-cdf + repex)
+esma_firds@2026-09-12#da1806fe…
+openfigi@2026-09-18#de3568e7…       (retrieval campaign, not a snapshot)
+
+bundle_fingerprint = sha256(canonical ordered evidence ids)
+                   = dfe244f54ad119d445ca216a443fdfd1ce6531486a5c39c2814a55ddbfd59def
+```
+
+A resolution is identified by (adjudication_version, bundle_fingerprint).
+New evidence or new rules → new partition, never overwrite.
+``adjudicated_at`` is written to rows but excluded from the fingerprint.
+
+### Rules — deliberately boring
+
+```text
+gleif=A firds=A            -> corroborated,   resolved_lei=A
+gleif=A firds=none         -> gleif_only,     resolved_lei=A
+gleif=none firds=B         -> firds_only,     resolved_lei=B
+gleif=A firds=B, A!=B      -> conflict,       resolved_lei=NULL
+any provider >1 candidate  -> multiple_candidates, resolved_lei=NULL
+neither produced           -> no_authoritative_match, resolved_lei=NULL
+```
+
+No provider priority, no name/ticker/country/CFI tie-break, OpenFIGI
+never enters issuer adjudication (no ``openfigi_only`` state exists).
+
+### Live result (bundle dfe244f5…, version 1)
+
+```text
+corroborated             7,028   (27.4%)
+firds_only               7,194   (28.0%)   — fills the XS/LU GLEIF gap
+gleif_only               1,045   ( 4.1%)
+conflict                   271   ( 1.1%)
+multiple_candidates          0
+no_authoritative_match  10,122   (39.4%)
+                    = 25,660  conservation holds
+resolved (corr + single-source): 15,267 (59.5%)
+
+issuer evidence strength for G8:
+  corroborated  7,028   two independent official sources agree
+  single-source 8,239   one source only — weaker, filterable
+```
+
+By period: 2012-03 resolved 2,710/9,230 (29%) · 2025-12 resolved
+13,787/~16,022 (86%). By prefix — the residual dark zone is domestic:
+ES 37% resolved (2,011 no_auth), LU 27% (2,202), XS 63%, US 80%,
+FR 73%, DE 67%.
+
+### Conflict context — the payoff of the bounded raw pass
+
+G7-B extracted RR records only where start LEI was a GLEIF candidate,
+so a FIRDS-only LEI ``B`` had no loaded ``B -> A`` record even when
+RR-CDF contains it (measured pre-G7-E: only 25/271 pairs had a loaded
+direct relation). G7-E runs a bounded second pass over the SAME stored
+RR-CDF/LEI-CDF artifacts with wanted = conflict LEIs — derived
+extraction over existing evidence, not a new provider, not a G7-B
+rewrite:
+
+```text
+271 conflicts -> context kinds:
+  direct_gleif_relation     219   (was 25 without the raw pass)
+  entity_metadata_difference 22
+  no_direct_gleif_relation   30
+  unknown                     0
+
+relationship types (all verbatim, direction + status preserved):
+  IS_SUBFUND_OF                 185   <- umbrella vs subfund granularity
+  IS_ULTIMATELY_CONSOLIDATED_BY  51
+  IS_DIRECTLY_CONSOLIDATED_BY    42
+  IS_FUND-MANAGED_BY              9
+status: ACTIVE 279 · INACTIVE 2 · NULL 6
+source: raw_artifact 245 · evidence_table 42
+```
+
+Interpretation: most "conflicts" are not contradictions but two
+different grains — GLEIF/ANNA maps to the umbrella, FIRDS field 5 to
+the subfund (or vice versa for consolidation). 183/271 conflicts are
+IE-prefixed (Irish ICAV structures). Example, verified end-to-end:
+``ES0305668016`` — GLEIF candidate "PENSIUM ESG I, FONDO DE
+TITULIZACION", FIRDS candidate "PENSIUM ESG I FT - SEGUNDO
+COMPARTIMENTO"; context shows the latter --IS_SUBFUND_OF--> the
+former, ACTIVE since 2022-06-29, with record locators into both raw
+artifacts. ``resolved_lei`` stays NULL: classification is information,
+never adjudication.
+
+### instrument_family_resolution
+
+Same bundle, same version, separate domain — shareClassFIGI
+convergence decided on the DISTINCT NON-NULL value set (a null-vs-
+value mix is a provider quirk, not a second family):
+
+```text
+single_share_class_figi    9,571
+no_share_class_figi       13,223   (matched rows, sc field absent)
+no_openfigi_match          2,865
+multiple_share_class_figi      1   (JE00B8DFY052 — genuinely 2, kept)
+                          25,660
+```
+
+### Gates — all 20 hold
+
+1 derived layer, G7-A..D untouched (fingerprints verified after run) ✓
+2 same LEI -> corroborated (7,028 = G7-C cross-matrix count exactly) ✓
+3–4 single-provider states ✓  5 different LEIs -> always conflict
+(271 = measured divergences exactly) ✓  6 no provider priority ✓
+7 no fuzzy/name/ticker matching anywhere in the pipeline ✓
+8 OpenFIGI absent from issuer adjudication (test: ofi-only evidence
+yields 100% no_authoritative_match) ✓  9 multiple_candidates never
+collapsed (test) ✓  10 conflict classification never changes
+resolved_lei=NULL (test + live: all 271 NULL) ✓  11 RR context keeps
+type/direction/status verbatim ✓  12 reporting exceptions never used
+as candidates ✓  13 bundle complete + fingerprinted (4 evidence ids) ✓
+14 provider dates separate (3 snapshots + 1 retrieval) ✓
+15 adjudication_version explicit ✓  16 same bundle+version -> exported:
+false, identical fingerprint (verified) ✓  17 new evidence -> new
+bundle partition, old preserved (test) ✓  18 G1–G7-D fingerprints
+unchanged (verified post-run) ✓  19 the 271 divergences remain
+conflicts — none resolved ✓  20 conservation 25,660 ✓
+
+CLI: ``adjudicate`` · ``security <isin>`` · ``resolution <isin>`` ·
+``resolution-coverage`` · ``resolution-conflicts``.
+
+G7 is now functionally complete: every corpus ISIN carries a
+deterministic, provenance-pinned issuer verdict (or an explicit
+non-verdict) plus a separate instrument-family verdict. Next: G7-F
+hardening, then G8 exposure engine — which must filter by resolution
+strength (corroborated vs single-source) and never aggregate
+conflicts silently.

@@ -963,3 +963,97 @@ class RelationshipExceptionObservation:
     member_sha256: str
     parser: str
     parser_version: str
+
+
+# ---------------------------------------------------------------------------
+# G7-E — adjudication layer. DERIVED data over the provider evidence
+# ledgers: nothing here is provider evidence and nothing here modifies
+# G7-A..D partitions. The rules are deliberately boring — equal LEIs
+# corroborate, different LEIs conflict, and no name/ticker/country/CFI
+# ever breaks a tie. A derived row is identified by
+# (adjudication_version, evidence_bundle_fingerprint): new evidence or
+# new rules produce a new logical resolution, never an overwrite.
+# ---------------------------------------------------------------------------
+
+TEMPORAL_SEMANTICS_ADJ = "derived_adjudication_over_provider_evidence"
+
+
+class AdjudicationState(StrEnum):
+    """Issuer-resolution verdict for one ISIN over one evidence bundle.
+
+    ``conflict`` means the two authoritative sources assert DIFFERENT
+    entities — not that either is wrong (FIRDS field 5 semantics and
+    GLEIF fund-hierarchy granularity legitimately diverge). It never
+    resolves to a LEI."""
+
+    CORROBORATED = "corroborated"                      # gleif=A firds=A
+    GLEIF_ONLY = "gleif_only"                          # gleif=A, firds none
+    FIRDS_ONLY = "firds_only"                          # firds=B, gleif none
+    CONFLICT = "conflict"                              # gleif=A firds=B, A!=B
+    MULTIPLE_CANDIDATES = "multiple_candidates"        # any provider >1
+    NO_AUTHORITATIVE_MATCH = "no_authoritative_match"  # neither produced
+
+
+class InstrumentFamilyState(StrEnum):
+    """OpenFIGI share-class FIGI convergence for one ISIN. Decided on the
+    set of DISTINCT NON-NULL share_class_figi values — a null-vs-value
+    mix across venue rows is a provider quirk, not a second family."""
+
+    SINGLE_SHARE_CLASS_FIGI = "single_share_class_figi"
+    MULTIPLE_SHARE_CLASS_FIGI = "multiple_share_class_figi"
+    NO_SHARE_CLASS_FIGI = "no_share_class_figi"
+    NO_OPENFIGI_MATCH = "no_openfigi_match"
+
+
+@dataclass(frozen=True)
+class EvidenceBundle:
+    """The exact evidence set an adjudication ran over. There is NO
+    single provider snapshot date: GLEIF artifacts are dated, FIRDS is
+    dated, OpenFIGI is a retrieval campaign. The bundle fingerprint —
+    sha256 over the canonical ordered evidence ids — is what pins the
+    input, not a date."""
+
+    gleif_isin_snapshot: str | None     # provider snapshot YYYY-MM-DD
+    gleif_golden_snapshot: str | None   # lei-cdf + rr-cdf + repex date
+    firds_snapshot: str | None
+    openfigi_retrieval: str | None      # retrieval campaign date
+    evidence_ids: tuple[str, ...]       # canonical ordered evidence ids
+    fingerprint: str                    # sha256 over evidence_ids
+
+
+@dataclass(frozen=True)
+class SecurityResolution:
+    """Derived issuer verdict for one ISIN. ``resolved_lei`` is NULL for
+    conflict / multiple_candidates / no_authoritative_match — conflict
+    classification in ``conflict_context_json`` is INFORMATION, never
+    adjudication."""
+
+    isin: str
+    state: AdjudicationState
+    resolved_lei: str | None
+    gleif_observation_id: str | None
+    firds_observation_id: str | None
+    gleif_candidate_lei: str | None     # NULL when provider produced !=1
+    firds_candidate_lei: str | None
+    conflict_context_json: str | None   # only for state=conflict
+    evidence_bundle_fingerprint: str
+    adjudication_version: str
+    temporal_semantics: str
+
+
+@dataclass(frozen=True)
+class InstrumentFamilyResolution:
+    """Derived share-class-FIGI verdict for one ISIN — instrument domain,
+    never issuer. ``share_class_figi`` is set only when exactly one
+    distinct non-null value exists; multiple distinct values stay
+    ambiguous, no pick-first."""
+
+    isin: str
+    state: InstrumentFamilyState
+    share_class_figi: str | None
+    composite_figi_count: int           # distinct non-null compositeFIGIs
+    venue_figi_count: int               # distinct venue figi values
+    observation_id: str | None          # openfigi observation, if any
+    evidence_bundle_fingerprint: str
+    adjudication_version: str
+    temporal_semantics: str

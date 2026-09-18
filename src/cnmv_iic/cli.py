@@ -39,6 +39,9 @@ from cnmv_iic.query import (
     position_history,
     quarterly_fees,
     quarterly_metrics,
+    resolution_conflicts,
+    resolution_coverage,
+    security_resolution,
     share_class_info,
 )
 from cnmv_iic.query import holdings as query_holdings
@@ -360,6 +363,97 @@ def ingest_openfigi_cmd(
         },
         json_out,
     )
+
+
+@app.command()
+def adjudicate(
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    version: Annotated[str, typer.Option(
+        help="Rules version — bump when adjudication rules change")] = "1",
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Derive issuer + instrument-family resolutions (G7-E).
+
+    Reads the pinned evidence bundle (latest provider evidence per
+    family) and writes a derived resolution partitioned by
+    (version, bundle). Idempotent: same bundle + same version is a
+    no-op; a new bundle or version creates a new logical resolution —
+    never an overwrite. Conflict context is enriched by a bounded
+    second pass over the SAME stored GLEIF raw artifacts."""
+    from cnmv_iic.adjudication import adjudicate as _adjudicate
+
+    root = data_dir or _data_dir()
+    store = ArtifactStore(root / "artifacts")
+    result = _run(lambda: _adjudicate(
+        root / "dataset", store, version=version))
+    _emit(
+        {
+            "version": result.version,
+            "bundle_fingerprint": result.bundle_fingerprint,
+            "exported": result.exported,
+            "securities": result.securities,
+            "instrument_families": result.families,
+            "security_states": result.security_states,
+            "family_states": result.family_states,
+            "adjudication_fingerprint": result.adjudication_fingerprint,
+        },
+        json_out,
+    )
+
+
+@app.command()
+def security(
+    isin: Annotated[str, typer.Argument(help="ISIN (12 chars)")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Adjudicated view of one ISIN: issuer verdict, instrument family,
+    and the evidence bundle that produced them."""
+    root = data_dir or _data_dir()
+    out = _run(lambda: security_resolution(root / "dataset", isin))
+    sec = out.get("security") or {}
+    if sec.get("resolved_lei"):
+        ent = _run(lambda: lei_evidence(root / "dataset",
+                                        sec["resolved_lei"]))
+        names = [e.get("legal_name") for e in ent.get("entities", [])
+                 if e.get("legal_name")]
+        if names:
+            sec["resolved_legal_name"] = names[0]
+    _emit(out, json_out)
+
+
+@app.command()
+def resolution(
+    isin: Annotated[str, typer.Argument(help="ISIN (12 chars)")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Issuer-resolution verdict for one ISIN — conflict rows carry the
+    full context JSON, never a picked winner."""
+    root = data_dir or _data_dir()
+    _emit(_run(lambda: security_resolution(root / "dataset", isin)),
+          json_out)
+
+
+@app.command(name="resolution-coverage")
+def resolution_coverage_cmd(
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """State distribution of the latest adjudication (full corpus)."""
+    root = data_dir or _data_dir()
+    _emit(_run(lambda: resolution_coverage(root / "dataset")), json_out)
+
+
+@app.command(name="resolution-conflicts")
+def resolution_conflicts_cmd(
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Every CONFLICT row of the latest adjudication with parsed context
+    — the GLEIF/FIRDS disagreement surface, never adjudicated away."""
+    root = data_dir or _data_dir()
+    _emit(_run(lambda: resolution_conflicts(root / "dataset")), json_out)
 
 
 @app.command()
