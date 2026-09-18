@@ -15,7 +15,9 @@ variation, with informational cross-family reconciliation → G5 FONDDERI
 implemented as a verbatim evidence ledger: compartment-level derivative
 operations with official facet enums decomposed, instrument text preserved
 verbatim, explicit `representation` state — never normalized, never
-inferred.
+inferred → G6 portfolio change ledger implemented: published-snapshot
+diffs with measured identity matching, strict change vocabulary (no
+transaction verbs), unresolved ambiguous groups, conservation checks.
 
 ## What this is (and isn't)
 
@@ -75,6 +77,12 @@ cnmv-iic allocation FI:9:0 --as-of 2025-12      # stock (monetary) + flow (pct)
 # derivative operations (FONDDERI) — verbatim evidence, never normalized
 cnmv-iic derivatives FI:9:0 --as-of 2025-12
 cnmv-iic derivatives ES0138841038 --as-of 2025-12   # class → owner compartment
+
+# portfolio change ledger — published snapshots, never transactions
+cnmv-iic portfolio-diff FI:9:0 2025-06 2025-12
+cnmv-iic portfolio-diff FI:9:0 --as-of 2025-12 --previous  # prior snapshot
+cnmv-iic position-history FI:9:0 ES0113900J37    # reported values, not buys
+cnmv-iic portfolio-history FI:9:0                # per-snapshot aggregates
 
 # informational cross-family comparison (equality never required)
 cnmv-iic reconcile 2025-12
@@ -170,7 +178,7 @@ tools/g0_probe.py  reproducible CNMV probe
 ## Current scope limits (deliberate non-goals)
 
 No web/API, no issuer resolution, no corporate-group exposure, no
-portfolio-diff, no look-through, no typed/normalized derivatives
+look-through, no typed/normalized derivatives
 (FONDDERI stays a verbatim evidence ledger — no parsed underlier/strike/
 expiry/counterparty, no pricing/greeks, no CDM/FpML/Strata/QuantLib
 runtime), no FundsXML export, no bulk public dataset, no derived returns

@@ -24,7 +24,13 @@ G5 FONDDERI **implemented and verified live** (`docs/g5/contract.md` +
 `docs/g5/oss-review.md` + `docs/g5/results.md`): verbatim evidence
 ledger — compartment derivative operations + explicit zero-operation
 coverage, `derivatives` CLI, coverage reconciliation.
-140 unit tests, ruff and mypy clean.
+G6 portfolio change semantics **implemented and verified live**
+(`docs/g6/contract.md` + `docs/g6/oss-review.md` +
+`docs/g6/results.md`): published-snapshot diff with measured identity
+matching, strict change vocabulary, unresolved ambiguous groups,
+conservation checks; `portfolio-diff`/`position-history`/
+`portfolio-history` CLI.
+155 unit tests, ruff and mypy clean.
 Name: `cnmv-iic` (import `cnmv_iic`) — **not** "OpenFunds ES"
 (openfunds.org collision, ADR-006).
 
@@ -112,9 +118,39 @@ G5 semantics worth knowing (FONDDERI, measured contract docs/g5/):
   Deliberately no options/futures/swaps/underlying/delta verbs —
   CNMV doesn't supply those concepts authoritatively.
 
+G6 semantics worth knowing (portfolio change, measured contract
+docs/g6/):
+- Periods are published snapshots, not quarters: `explicit_periods` or
+  `adjacent_available_snapshots` (`--previous` = owner's latest
+  available snapshot strictly before to_period).
+- Matching is two-phase: identity matching first, change
+  classification second — never "value changed → same security".
+- `positions.fund_key` IS the compartment key (FundIdentity includes
+  numero_compartimento).
+- match_state: `exact_identifier` (ISIN unique both sides),
+  `exact_source_signature` (unique verbatim signature,
+  identifier_authority=none), `unresolved` (ISIN duplicated
+  in-portfolio — groups reported unpaired, NEVER summed).
+- Descriptors are never match inputs (18-30% churn measured) — they
+  are `source_metadata_changed` outputs.
+- Change vocabulary is closed: added/removed/unchanged/
+  market_value_changed/weight_changed/market_value_and_weight_changed/
+  source_metadata_changed. NO transaction verbs — added does not
+  mean bought, removed does not mean sold.
+- Weight fields: `derived`; weight deltas: `derived_from_derived`.
+  VM deltas: `observed_delta`. Decimal everywhere.
+- Conservation reported per side: matched + added + unresolved_new =
+  count(new) (and mirror) — `holds` flag, never force-fit.
+- FONDDERI excluded from individual matching
+  (`individual_position_diff: unavailable` — no authoritative
+  cross-snapshot identity, G5). PDV variation attached as context —
+  no causal attribution.
+- `diff_fingerprint` = sha256 over canonical changes — same inputs,
+  identical output.
+
 Still out: issuer resolution, corporate-action inference,
 look-through, calculated returns, rankings, web frontend, REST API,
-FundsXML export, normalized/CDM derivatives, portfolio-diff.
+FundsXML export, normalized/CDM derivatives.
 
 ## Verified environment facts
 - Windows, Python 3.11+ (uv-managed venv shadows system python — install
