@@ -130,10 +130,31 @@ FONDREGISTRO_ELEMENTS = frozenset({
     "FondRegistro/Entidad/Compartimento/Clase/DenominacionClase",
 })
 
+_CLASE = "FondMens/Entidad/Compartimento/Clase"
+FONDMENS_ELEMENTS = frozenset({
+    "FondMens",
+    "FondMens/FechaDatos",
+    "FondMens/Entidad",
+    "FondMens/Entidad/Tipo",
+    "FondMens/Entidad/NumeroRegistro",
+    "FondMens/Entidad/Compartimento",
+    "FondMens/Entidad/Compartimento/NumeroCompartimento",
+    _CLASE,
+    f"{_CLASE}/NumeroClase",
+    f"{_CLASE}/ISIN",
+    f"{_CLASE}/VLDiario",
+    f"{_CLASE}/PatrimonioDiario",
+    f"{_CLASE}/ParticipesDiario",
+    *{f"{_CLASE}/VLDiario/VL_Dia{d}" for d in range(1, 32)},
+    *{f"{_CLASE}/PatrimonioDiario/Patrimonio_Dia{d}" for d in range(1, 32)},
+    *{f"{_CLASE}/ParticipesDiario/Participes_Dia{d}" for d in range(1, 32)},
+})
+
 KNOWN_ELEMENTS: dict[str, frozenset[str]] = {
     "FONDCART": FONDCART_ELEMENTS,
     "FONDPATRIMDISVAR": FONDPATRIMDISVAR_ELEMENTS,
     "FONDREGISTRO": FONDREGISTRO_ELEMENTS,
+    "FONDMENS": FONDMENS_ELEMENTS,
 }
 
 

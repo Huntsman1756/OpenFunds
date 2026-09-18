@@ -14,6 +14,7 @@ Determinism contract (user gate 6):
 from __future__ import annotations
 
 import json
+from datetime import date
 from decimal import ROUND_HALF_EVEN, Decimal
 from hashlib import sha256
 from pathlib import Path
@@ -21,7 +22,11 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from cnmv_iic.domain import FundRecord, PortfolioSnapshot
+from cnmv_iic.domain import (
+    FundRecord,
+    PortfolioSnapshot,
+    ShareClassDailyObservation,
+)
 
 Q18 = Decimal(1).scaleb(-18)
 DERIVED_QUANT = Q18
@@ -102,6 +107,38 @@ SHARE_CLASSES_SCHEMA = pa.schema([
     ("denominacion_clase", pa.string()),
     ("denominacion_compartimento", pa.string()),
     ("source_artifact_id", pa.string()),
+    ("xml_locator", pa.string()),
+    ("parser", pa.string()),
+    ("parser_version", pa.string()),
+])
+
+DAILY_SCHEMA = pa.schema([
+    ("period", pa.string()),                 # observed_period YYYY-MM
+    ("share_class_key", pa.string()),
+    ("compartment_key", pa.string()),
+    ("fund_key", pa.string()),
+    ("entity_type", pa.string()),
+    ("numero_registro", pa.string()),
+    ("numero_compartimento", pa.string()),
+    ("numero_clase", pa.string()),
+    ("isin_raw", pa.string()),
+    ("isin_state", pa.string()),
+    ("observation_date", pa.date32()),
+    ("day_index", pa.int32()),
+    ("nav", pa.decimal128(38, 4)),           # NULL unless nav_state=observed
+    ("nav_raw", pa.string()),
+    ("nav_state", pa.string()),
+    ("aum", pa.decimal128(38, 2)),
+    ("aum_raw", pa.string()),
+    ("aum_state", pa.string()),
+    ("investors", pa.int64()),
+    ("investors_raw", pa.string()),
+    ("investors_state", pa.string()),
+    ("registry_state", pa.string()),
+    ("source_artifact_id", pa.string()),
+    ("source_sha256", pa.string()),
+    ("member_name", pa.string()),
+    ("member_sha256", pa.string()),
     ("xml_locator", pa.string()),
     ("parser", pa.string()),
     ("parser_version", pa.string()),
@@ -287,6 +324,51 @@ def share_class_rows(records: list[FundRecord]) -> list[dict]:
     return rows
 
 
+def daily_rows(obs: list[ShareClassDailyObservation]) -> list[dict]:
+    rows = []
+    for o in obs:
+        p = o.provenance
+        rows.append({
+            "period": o.period,
+            "share_class_key": o.share_class_key,
+            "compartment_key": o.compartment_key,
+            "fund_key": o.fund_key,
+            "entity_type": o.entity_type,
+            "numero_registro": o.numero_registro,
+            "numero_compartimento": o.numero_compartimento,
+            "numero_clase": o.numero_clase,
+            "isin_raw": o.isin_raw,
+            "isin_state": o.isin_state.value,
+            "observation_date": date.fromisoformat(o.observation_date),
+            "day_index": o.day_index,
+            "nav": o.nav.value if isinstance(o.nav.value, Decimal) else None,
+            "nav_raw": o.nav.raw,
+            "nav_state": o.nav.state.value,
+            "aum": o.aum.value if isinstance(o.aum.value, Decimal) else None,
+            "aum_raw": o.aum.raw,
+            "aum_state": o.aum.state.value,
+            "investors": (
+                int(o.investors.value)
+                if o.investors.value is not None else None
+            ),
+            "investors_raw": o.investors.raw,
+            "investors_state": o.investors.state.value,
+            "registry_state": o.registry_state.value,
+            "source_artifact_id": p.source_artifact_id,
+            "source_sha256": p.source_sha256,
+            "member_name": p.member_name,
+            "member_sha256": p.member_sha256,
+            "xml_locator": p.xml_locator,
+            "parser": p.parser,
+            "parser_version": p.parser_version,
+        })
+    rows.sort(key=lambda r: (
+        str(r["entity_type"]), str(r["numero_registro"]).zfill(12),
+        str(r["numero_compartimento"]).zfill(6),
+        str(r["numero_clase"]).zfill(6), int(str(r["day_index"]))))
+    return rows
+
+
 def canonical_fingerprint(*row_sets: list[dict]) -> str:
     """SHA-256 over canonical row serialization — parquet-metadata independent."""
     h = sha256()
@@ -313,11 +395,13 @@ def write_period(
     period: str,
     artifact_id: str,
     records: list[FundRecord] | None = None,
+    daily: list[ShareClassDailyObservation] | None = None,
 ) -> dict:
     """Write period-partitioned parquet tables; return manifest.
 
     ``dataset_fingerprint`` covers positions+quality only (G1 semantics —
     unchanged). ``registry_fingerprint`` covers the identity tables.
+    ``daily_fingerprint`` covers the FONDMENS daily-observation table.
     """
     root = Path(dataset_root)
 
@@ -354,6 +438,18 @@ def write_period(
             "compartments": len(crow),
             "share_classes": len(srow),
             "registry_fingerprint": canonical_fingerprint(frow, crow, srow),
+        })
+
+    if daily is not None:
+        drow = daily_rows(daily)
+        if drow:
+            _write_table(
+                drow, DAILY_SCHEMA,
+                root / "daily" / f"period={period}" / "part-0.parquet")
+        manifest.update({
+            "daily_observations": len(drow),
+            "fondmens_present": bool(drow),
+            "daily_fingerprint": canonical_fingerprint(drow),
         })
 
     (root / "manifests").mkdir(parents=True, exist_ok=True)

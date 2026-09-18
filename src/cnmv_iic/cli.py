@@ -15,6 +15,8 @@ from cnmv_iic.artifacts.store import ArtifactStore
 from cnmv_iic.errors import CnmvIicError
 from cnmv_iic.ingest import update_period
 from cnmv_iic.query import (
+    class_observation_summary,
+    daily_series,
     dataset_info,
     fund_info,
     funds_by_institution,
@@ -79,12 +81,15 @@ def update(
             "artifact_new_version": result.artifact_new,
             "exported": result.exported,
             "fondcart_present": result.fondcart_present,
+            "fondmens_present": result.fondmens_present,
             "dataset_fingerprint": result.dataset_fingerprint,
             "registry_fingerprint": result.registry_fingerprint,
+            "daily_fingerprint": result.daily_fingerprint,
             "positions": result.positions,
             "quality_rows": result.quality_rows,
             "funds": result.funds,
             "share_classes": result.share_classes,
+            "daily_observations": result.daily_observations,
         },
         json_out,
     )
@@ -154,6 +159,78 @@ def share_class(
         {"period": period, "resolution": resolution, **record},
         json_out,
     )
+
+
+def _daily_cmd(metric: str, identifier: str, from_date: str | None,
+               to_date: str | None, data_dir: Path | None,
+               json_out: bool) -> None:
+    root = data_dir or _data_dir()
+    meta, rows = _run(lambda: daily_series(
+        root / "dataset", identifier, metric, from_date, to_date))
+    _emit({"resolution": meta, "observations": rows}, json_out)
+
+
+@app.command()
+def nav(
+    identifier: Annotated[str, typer.Argument(
+        help="Share-class ISIN or key FI:<reg>:<comp>:<clase>")],
+    from_date: Annotated[str | None, typer.Option(
+        "--from", help="ISO date YYYY-MM-DD")] = None,
+    to_date: Annotated[str | None, typer.Option(
+        "--to", help="ISO date YYYY-MM-DD")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Daily valor liquidativo (NAV, EUR) for one share class.
+
+    OBSERVED values only — sentinel/missing cells keep NULL + raw + state.
+    """
+    _daily_cmd("nav", identifier, from_date, to_date, data_dir, json_out)
+
+
+@app.command()
+def aum(
+    identifier: Annotated[str, typer.Argument(
+        help="Share-class ISIN or key FI:<reg>:<comp>:<clase>")],
+    from_date: Annotated[str | None, typer.Option(
+        "--from", help="ISO date YYYY-MM-DD")] = None,
+    to_date: Annotated[str | None, typer.Option(
+        "--to", help="ISO date YYYY-MM-DD")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Daily patrimonio (AUM, EUR) for one share class."""
+    _daily_cmd("aum", identifier, from_date, to_date, data_dir, json_out)
+
+
+@app.command()
+def investors(
+    identifier: Annotated[str, typer.Argument(
+        help="Share-class ISIN or key FI:<reg>:<comp>:<clase>")],
+    from_date: Annotated[str | None, typer.Option(
+        "--from", help="ISO date YYYY-MM-DD")] = None,
+    to_date: Annotated[str | None, typer.Option(
+        "--to", help="ISO date YYYY-MM-DD")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Daily participes (investor count) for one share class."""
+    _daily_cmd("investors", identifier, from_date, to_date, data_dir, json_out)
+
+
+@app.command(name="class")
+def class_card(
+    identifier: Annotated[str, typer.Argument(
+        help="Share-class ISIN or key FI:<reg>:<comp>:<clase>")],
+    as_of: Annotated[str | None, typer.Option(help="YYYY-MM-DD or YYYY-MM")] = None,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Share-class identity + FONDMENS observation coverage."""
+    root = data_dir or _data_dir()
+    info, summary = _run(lambda: class_observation_summary(
+        root / "dataset", identifier, as_of))
+    _emit({"resolution": info, "coverage": summary}, json_out)
 
 
 @app.command()

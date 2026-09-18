@@ -37,7 +37,8 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
     if not root.exists():
         raise NotFoundError(f"no dataset under {root} — run `cnmv-iic update` first")
     con = duckdb.connect(database=":memory:")
-    for table in ("positions", "quality", "funds", "compartments", "share_classes"):
+    for table in ("positions", "quality", "funds", "compartments",
+                  "share_classes", "daily"):
         if (root / table).exists():
             glob = str(root / table / "period=*" / "*.parquet")
             con.execute(
@@ -493,6 +494,125 @@ def identity_events(
     return [asdict(e) for e in events]
 
 
+def _daily_share_class_key(
+    con: duckdb.DuckDBPyConnection, identifier: str, as_of: str | None
+) -> tuple[str, dict]:
+    """Resolve an identifier to ONE share-class key for daily observations.
+
+    Grain contract: NAV/AUM/investors are per-share-class — a fund or
+    compartment identifier can never resolve to a class-level series.
+    Resolution uses the registry at the latest period <= as-of when it
+    exists; without registry data only the full FI:r:c:k key is accepted.
+    """
+    if "daily" not in {r[0] for r in con.execute(
+            "SELECT table_name FROM information_schema.tables").fetchall()}:
+        raise NotFoundError(
+            "no FONDMENS data in dataset — run `cnmv-iic update` first")
+    reg_period = _registry_period(con, as_of)
+    if reg_period is not None:
+        resolution = resolve(
+            identifier,
+            share_classes=_share_class_rows(con, reg_period),
+            funds=_fund_owners(con, reg_period),
+        )
+        if resolution.kind != ResolutionKind.EXACT_SHARE_CLASS:
+            raise NotFoundError(
+                f"{identifier!r} does not resolve to a single share class:"
+                f" {resolution.kind.value}"
+                + (f" — {resolution.note}" if resolution.note else ""))
+        key = resolution.share_class_key
+        if key is None:
+            raise NotFoundError(
+                f"cannot resolve {identifier!r}: share class key absent")
+        return key, _resolution_info(resolution)
+    if identifier.count(":") == 3:
+        return identifier, {
+            "requested_identifier": identifier,
+            "resolved_as": ResolutionKind.EXACT_SHARE_CLASS.value,
+            "share_class_key": identifier,
+            "share_class_isin": None,
+            "note": "resolved without registry data",
+        }
+    raise NotFoundError(
+        f"cannot resolve {identifier!r}: daily observations require a "
+        f"share-class ISIN or full key FI:<reg>:<comp>:<clase>")
+
+
+def daily_series(
+    root: Path | str, identifier: str, metric: str,
+    from_date: str | None, to_date: str | None,
+) -> tuple[dict, list[dict]]:
+    """Daily observed values for one share class and one metric.
+
+    OBSERVED values only in the value column — sentinel/missing/invalid
+    cells keep NULL + verbatim raw + explicit state. No forward-fill,
+    no interpolation, no derived returns.
+    """
+    if metric not in ("nav", "aum", "investors"):
+        raise NotFoundError(f"unknown daily metric {metric!r}")
+    con = _con(root)
+    key, info = _daily_share_class_key(con, identifier, to_date)
+    clauses, params = ["share_class_key = ?"], [key]
+    if from_date:
+        clauses.append("observation_date >= ?")
+        params.append(from_date)
+    if to_date:
+        clauses.append("observation_date <= ?")
+        params.append(to_date)
+    con.execute(
+        f"SELECT observation_date, day_index, period,"
+        f" {metric} AS value, {metric}_raw AS raw,"
+        f" {metric}_state AS state, registry_state, isin_raw,"
+        f" source_artifact_id, xml_locator"
+        f" FROM daily WHERE {' AND '.join(clauses)}"
+        f" ORDER BY observation_date",
+        params,
+    )
+    rows = _rows(con)
+    meta = info | {
+        "metric": metric,
+        "from_date": from_date,
+        "to_date": to_date,
+        "observations": len(rows),
+        "observed": sum(1 for r in rows if r["state"] == "observed"),
+        "semantics": "EUR values; NULL = no observation (see state/raw)",
+    }
+    return meta, rows
+
+
+def class_observation_summary(
+    root: Path | str, identifier: str, as_of: str | None
+) -> tuple[dict, dict]:
+    """Coverage summary of one share class's daily observations."""
+    con = _con(root)
+    key, info = _daily_share_class_key(con, identifier, as_of)
+    con.execute(
+        "SELECT min(observation_date) AS first_observed,"
+        " max(observation_date) AS last_observed,"
+        " count(DISTINCT period) AS periods,"
+        " count(*) AS rows,"
+        " sum(CASE WHEN nav_state='observed' THEN 1 ELSE 0 END)"
+        " AS nav_observed,"
+        " sum(CASE WHEN nav_state='source_zero_sentinel' THEN 1 ELSE 0 END)"
+        " AS nav_sentinel,"
+        " sum(CASE WHEN aum_state='observed' THEN 1 ELSE 0 END)"
+        " AS aum_observed,"
+        " sum(CASE WHEN investors_state='observed' THEN 1 ELSE 0 END)"
+        " AS investors_observed,"
+        " sum(CASE WHEN nav_state='missing' THEN 1 ELSE 0 END) AS missing,"
+        " sum(CASE WHEN registry_state='unresolved_registry_reference'"
+        " THEN 1 ELSE 0 END) AS unresolved_days"
+        " FROM daily WHERE share_class_key = ?",
+        [key],
+    )
+    summary = _rows(con)[0]
+    con.execute(
+        "SELECT DISTINCT period FROM daily WHERE share_class_key = ?"
+        " ORDER BY 1", [key])
+    summary["observed_periods"] = [r["period"] for r in _rows(con)]
+    return info, summary
+
+
 def dataset_info(root: Path | str) -> dict:
     root = Path(root)
     con = _con(root)
@@ -516,6 +636,20 @@ def dataset_info(root: Path | str) -> dict:
             " sum(n_compartments) AS compartments,"
             " sum(n_share_classes) AS share_classes"
             " FROM funds GROUP BY period ORDER BY period"))
+    if "daily" in tables:
+        out["daily_periods"] = [r[0] for r in con.execute(
+            "SELECT DISTINCT period FROM daily ORDER BY 1").fetchall()]
+        out["daily_per_period"] = _rows(con.execute(
+            "SELECT period, count(*) AS observations,"
+            " count(DISTINCT share_class_key) AS share_classes"
+            " FROM daily GROUP BY period ORDER BY period"))
+        out["daily_states"] = {
+            r[0]: r[1] for r in con.execute(
+                "SELECT state, count(*) FROM ("
+                " SELECT nav_state AS state FROM daily UNION ALL"
+                " SELECT aum_state FROM daily UNION ALL"
+                " SELECT investors_state FROM daily)"
+                " GROUP BY state").fetchall()}
     if "quality" in tables:
         out["quality_states"] = {
             r[0]: r[1] for r in con.execute(

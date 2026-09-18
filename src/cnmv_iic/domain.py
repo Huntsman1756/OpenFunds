@@ -252,3 +252,74 @@ class IdentityEvent:
     new: str | None
     from_period: str
     to_period: str
+
+
+# ---------------------------------------------------------------------------
+# G3 — daily share-class observations (FONDMENS)
+# ---------------------------------------------------------------------------
+
+
+class ObservationState(StrEnum):
+    """Per-metric state of one day cell (docs/g3/contract.md)."""
+
+    OBSERVED = "observed"                    # real published value
+    SOURCE_ZERO_SENTINEL = "source_zero_sentinel"  # '0' = no observation
+    MISSING = "missing"                      # element/block absent in source
+    INVALID = "invalid"                      # present but non-numeric
+
+
+class RegistryJoinState(StrEnum):
+    RESOLVED = "resolved"
+    UNRESOLVED = "unresolved_registry_reference"
+
+
+@dataclass(frozen=True)
+class MetricObservation:
+    """One metric on one day: clean value + verbatim raw + state."""
+
+    value: Decimal | int | None   # populated only when state == OBSERVED
+    raw: str | None               # verbatim lexical value (None if absent)
+    state: ObservationState
+
+
+@dataclass(frozen=True)
+class ShareClassDailyObservation:
+    """One (share_class, calendar day) row from FONDMENS.
+
+    The grain is the SHARE CLASS — never collapsed to the compartment
+    portfolio owner (contrast with G1 holdings). Values are OBSERVED only;
+    nothing is forward-filled or interpolated.
+    """
+
+    entity_type: str
+    numero_registro: str
+    numero_compartimento: str
+    numero_clase: str
+    isin_raw: str | None
+    isin_state: IsinState
+    observation_date: str         # ISO 'YYYY-MM-DD', calendar-valid day only
+    day_index: int                # 1..month_length
+    nav: MetricObservation        # VL_DiaN (EUR)
+    aum: MetricObservation        # Patrimonio_DiaN (EUR)
+    investors: MetricObservation  # Participes_DiaN
+    registry_state: RegistryJoinState
+    period: str                   # observed_period (YYYY-MM)
+    provenance: Provenance
+
+    @property
+    def share_class_key(self) -> str:
+        return share_class_key(
+            self.entity_type, self.numero_registro,
+            self.numero_compartimento, self.numero_clase,
+        )
+
+    @property
+    def compartment_key(self) -> str:
+        return compartment_key(
+            self.entity_type, self.numero_registro,
+            self.numero_compartimento,
+        )
+
+    @property
+    def fund_key(self) -> str:
+        return fund_key(self.entity_type, self.numero_registro)

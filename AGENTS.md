@@ -2,12 +2,13 @@
 
 ## Project state
 
-G1 holdings ledger **PASS** (`docs/g1/results.md`, tag `g1-holdings-pass`,
-commit `55c982a`). G2 regulatory identity **implemented and verified live**
-(`docs/g2/results.md`): FONDREGISTRO adapter → funds/compartments/
-share_classes Parquet tables → fail-closed resolution → ISIN-aware
-`holdings` plus `fund` / `share-class` / `manager` / `depositary` /
-`fund-events` commands. 49 unit tests, ruff and mypy clean.
+G1 holdings ledger **PASS** (tag `g1-holdings-pass`). G2 regulatory
+identity **PASS** (`docs/g2/results.md`, tag `g2-identity-pass`, plus
+post-adjudication tightening `4a208a6`: stale-fallback metadata + `--exact`
++ `invalid_identifier`). G3 FONDMENS **implemented and verified live**
+(`docs/g3/contract.md` + `docs/g3/results.md`): daily NAV/AUM/investors per
+share class with explicit observation states. 73 unit tests, ruff and mypy
+clean.
 Name: `cnmv-iic` (import `cnmv_iic`) — **not** "OpenFunds ES"
 (openfunds.org collision, ADR-006).
 
@@ -16,15 +17,30 @@ G2 semantics worth knowing:
   `share_class_key=FI:9:0:1`. Compartment key = FONDCART portfolio owner —
   N classes share one portfolio, never duplicated.
 - Resolution kinds: exact_share_class / exact_compartment / exact_fund /
-  ambiguous / not_found. ISINs resolve only when `isin_state=valid`.
-- Non-cadence months export registry-only (`fondcart_present: false`);
-  `holdings` falls back to latest positions period <= as-of.
+  invalid_identifier / ambiguous / not_found. ISINs resolve only when
+  `isin_state=valid`.
+- Non-cadence months export registry+daily only (`fondcart_present:
+  false`); `holdings` falls back to latest positions period <= as-of,
+  honestly labelled via `stale`/`resolution_mode`; `--exact` disables it.
 - `registry_fingerprint` covers identity tables; G1 `dataset_fingerprint`
   scope (positions+quality) is unchanged.
 
-Next gates (post-G2, not started): FONDMENS (NAV/AUM/investors), FONDTRIM +
-FONDPATRIMDISVAR (fees/returns), FONDDERI verbatim records, portfolio-diff
-only after cadence semantics formalized (Q/Q ≤2022, H/H ≥2023).
+G3 semantics worth knowing:
+- Grain: `(share_class_key, observation_date)` — FONDMENS is per-class,
+  NEVER deduplicated to the compartment (inverse of the holdings rule).
+- `'0'` = no-observation sentinel (boundary-only, measured; impossible
+  days carry it too). Per-metric states: observed / source_zero_sentinel /
+  missing / invalid; clean value NULL unless observed; `raw` verbatim.
+- `observation_date` = FechaDatos month + DiaN for N <= month_length;
+  impossible days rejected. Negative patrimonio is observed, not sentinel.
+- `NumeroClase=0` = fund-level grain — a first-class key.
+- `daily_fingerprint` is separate; G1/G2 fingerprints unchanged.
+- No derived returns — official returns are FONDTRIM (G4).
+
+Next gates (post-G3, not started): FONDTRIM + FONDPATRIMDISVAR
+(fees/returns — FONDTRIM currency may differ from FONDMENS EUR), FONDDERI
+verbatim records, portfolio-diff only after cadence semantics formalized
+(Q/Q <=2022, H/H >=2023).
 
 ## Verified environment facts
 - Windows, Python 3.11+ (uv-managed venv shadows system python — install

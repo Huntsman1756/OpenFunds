@@ -11,8 +11,10 @@ from pathlib import Path
 
 from cnmv_iic.acquisition.client import CnmvClient
 from cnmv_iic.adapters.fondcart import parse_fondcart, reconcile
+from cnmv_iic.adapters.fondmens import parse_fondmens
 from cnmv_iic.adapters.fondregistro import parse_fondregistro
 from cnmv_iic.artifacts.store import ArtifactStore, SourceArtifact, member_family
+from cnmv_iic.domain import share_class_key
 from cnmv_iic.errors import NotFoundError, ParseError
 from cnmv_iic.schemas.registry import check_xsd
 from cnmv_iic.storage import write_period
@@ -30,11 +32,14 @@ class UpdateResult:
     exported: bool
     dataset_fingerprint: str | None
     registry_fingerprint: str | None
+    daily_fingerprint: str | None
     positions: int
     quality_rows: int
     funds: int
     share_classes: int
+    daily_observations: int
     fondcart_present: bool
+    fondmens_present: bool
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
@@ -95,26 +100,65 @@ def update_period(
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     needs_positions = manifest.get("dataset_fingerprint") is None
     needs_registry = manifest.get("registry_fingerprint") is None
-    if not is_new and not (needs_positions or needs_registry):
+    needs_daily = manifest.get("daily_fingerprint") is None
+    if not is_new and not (needs_positions or needs_registry or needs_daily):
         return UpdateResult(
             period=period, artifact=artifact, artifact_new=False,
             exported=False,
             dataset_fingerprint=manifest["dataset_fingerprint"],
             registry_fingerprint=manifest.get("registry_fingerprint"),
+            daily_fingerprint=manifest.get("daily_fingerprint"),
             positions=manifest["positions"],
             quality_rows=manifest["quality_rows"],
             funds=manifest.get("funds", 0),
             share_classes=manifest.get("share_classes", 0),
+            daily_observations=manifest.get("daily_observations", 0),
             fondcart_present=manifest.get("fondcart_present", True),
+            fondmens_present=manifest.get("fondmens_present", False),
         )
 
     zf = zipfile.ZipFile(store.raw_path(artifact))
 
     # XSD fingerprint gate — fail closed on unknown schema generations.
-    for fam in ("FONDCART", "FONDPATRIMDISVAR", "FONDREGISTRO"):
+    for fam in ("FONDCART", "FONDPATRIMDISVAR", "FONDREGISTRO", "FONDMENS"):
         sha = artifact.xsd_sha256.get(fam)
         if sha is not None:
             check_xsd(fam, sha)
+
+    # FONDREGISTRO first: same-period class keys feed the FONDMENS join.
+    records = None
+    reg = _member_xml(zf, "FONDREGISTRO")
+    if reg is not None:
+        reg_name, reg_xml = reg
+        records = parse_fondregistro(
+            reg_xml,
+            artifact=artifact,
+            member_name=reg_name,
+            member_sha256=_member_sha(artifact, reg_name),
+        )
+
+    registry_keys = (
+        frozenset(
+            share_class_key(r.entity_type, r.numero_registro,
+                            c.numero_compartimento, cl.numero_clase)
+            for r in records
+            for c in r.compartments
+            for cl in c.classes
+        )
+        if records is not None else None
+    )
+
+    daily = None
+    mens = _member_xml(zf, "FONDMENS")
+    if mens is not None:
+        mens_name, mens_xml = mens
+        daily = parse_fondmens(
+            mens_xml,
+            artifact=artifact,
+            member_name=mens_name,
+            member_sha256=_member_sha(artifact, mens_name),
+            registry_keys=registry_keys,
+        )
 
     snaps = []
     cart = _member_xml(zf, "FONDCART")
@@ -129,34 +173,27 @@ def update_period(
         )
         reconcile(snaps, pdv[1] if pdv else None)
 
-    records = None
-    reg = _member_xml(zf, "FONDREGISTRO")
-    if reg is not None:
-        reg_name, reg_xml = reg
-        records = parse_fondregistro(
-            reg_xml,
-            artifact=artifact,
-            member_name=reg_name,
-            member_sha256=_member_sha(artifact, reg_name),
-        )
-    if cart is None and records is None:
+    if cart is None and records is None and daily is None:
         raise ParseError(
-            f"artifact {artifact.source_id} has neither FONDCART nor "
-            f"FONDREGISTRO members"
+            f"artifact {artifact.source_id} has no parseable members "
+            f"(FONDCART/FONDREGISTRO/FONDMENS all absent)"
         )
 
     manifest = write_period(
         dataset_root, snaps, period=period,
-        artifact_id=artifact.source_id, records=records,
+        artifact_id=artifact.source_id, records=records, daily=daily,
     )
     return UpdateResult(
         period=period, artifact=artifact, artifact_new=is_new,
         exported=True,
         dataset_fingerprint=manifest["dataset_fingerprint"],
         registry_fingerprint=manifest.get("registry_fingerprint"),
+        daily_fingerprint=manifest.get("daily_fingerprint"),
         positions=manifest["positions"],
         quality_rows=manifest["quality_rows"],
         funds=manifest.get("funds", 0),
         share_classes=manifest.get("share_classes", 0),
+        daily_observations=manifest.get("daily_observations", 0),
         fondcart_present=manifest["fondcart_present"],
+        fondmens_present=manifest.get("fondmens_present", False),
     )
