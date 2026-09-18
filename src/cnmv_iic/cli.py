@@ -96,6 +96,8 @@ def holdings(
         help="Share-class ISIN, or CNMV key FI:<reg>:<comp> / FI:<reg> / <reg>"
     )],
     as_of: Annotated[str | None, typer.Option(help="YYYY-MM-DD or YYYY-MM")] = None,
+    exact: Annotated[bool, typer.Option(
+        "--exact", help="Fail unless a snapshot exists at the as-of month")] = False,
     data_dir: Annotated[Path | None, typer.Option()] = None,
     json_out: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
@@ -103,11 +105,13 @@ def holdings(
 
     A share-class ISIN resolves through FONDREGISTRO to its compartment
     portfolio owner — several classes may share one portfolio (never
-    duplicated). Resolution metadata is included in the output.
+    duplicated). The response always exposes requested_as_of,
+    portfolio_period, resolution_mode and stale so a fallback snapshot
+    can never look contemporaneous; --exact disables fallback entirely.
     """
     root = data_dir or _data_dir()
     period, resolution, rows = _run(
-        lambda: query_holdings(root / "dataset", fund, as_of))
+        lambda: query_holdings(root / "dataset", fund, as_of, exact=exact))
     _emit(
         {"period": period, "resolution": resolution, "positions": rows},
         json_out,
@@ -227,17 +231,20 @@ def fund_events(
 def funds_holding_cmd(
     isin: Annotated[str, typer.Argument(help="Instrument ISIN")],
     as_of: Annotated[str | None, typer.Option(help="YYYY-MM-DD or YYYY-MM")] = None,
+    exact: Annotated[bool, typer.Option(
+        "--exact", help="Fail unless a snapshot exists at the as-of month")] = False,
     data_dir: Annotated[Path | None, typer.Option()] = None,
     json_out: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Funds REPORTING A PORTFOLIO POSITION in `isin` (not beneficial owners)."""
     root = data_dir or _data_dir()
-    period, rows = _run(
-        lambda: funds_holding(root / "dataset", isin, as_of))
+    period, meta, rows = _run(
+        lambda: funds_holding(root / "dataset", isin, as_of, exact=exact))
     _emit(
         {
             "period": period,
             "isin": isin,
+            **meta,
             "semantics": "reported portfolio positions (not beneficial ownership)",
             "funds": rows,
         },

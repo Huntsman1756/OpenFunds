@@ -26,12 +26,12 @@ from cnmv_iic.domain import (
     IsinState,
     Resolution,
     ResolutionKind,
+    classify_isin,
     compartment_key,
     fund_key,
     share_class_key,
 )
 
-_ISIN_LIKE = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
 _KEY_RE = re.compile(r"^([A-Z]{1,4}):(\d+)(?::(\d+))?(?::(\d+))?$")
 
 
@@ -60,20 +60,22 @@ def resolve(
     """
     ident = identifier.strip()
 
-    # 1) share-class ISIN
-    if _ISIN_LIKE.fullmatch(ident):
-        hits = [r for r in share_classes
-                if r.isin_raw == ident and r.isin_state == IsinState.VALID]
+    # 1) ISIN candidate — 12 chars, alpha prefix (covers format-valid AND
+    # format-invalid candidates). The identifier itself is classified first:
+    # a masked/invalid ISIN is an invalid_identifier, NOT ambiguous —
+    # ambiguity is reserved for >1 plausible resolutions.
+    if len(ident) == 12 and ident[:2].isalpha():
+        state = classify_isin(ident)
+        if state is not IsinState.VALID:
+            return Resolution(
+                kind=ResolutionKind.INVALID_IDENTIFIER, requested=ident,
+                portfolio_owners=(),
+                note=f"identifier ISIN state is {state.value} "
+                     "(masked, absent, malformed or bad check digit) — "
+                     "never resolved or corrected",
+            )
+        hits = [r for r in share_classes if r.isin_raw == ident]
         if not hits:
-            # masked/invalid/absent ISINs never resolve silently
-            any_hit = [r for r in share_classes if r.isin_raw == ident]
-            if any_hit:
-                return Resolution(
-                    kind=ResolutionKind.AMBIGUOUS, requested=ident,
-                    portfolio_owners=(),
-                    note="ISIN present but not VALID state — "
-                         "fail-closed, no resolution",
-                )
             return Resolution(
                 kind=ResolutionKind.NOT_FOUND, requested=ident,
                 portfolio_owners=(), note="ISIN not in registry at period",

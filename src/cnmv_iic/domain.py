@@ -211,7 +211,8 @@ class ResolutionKind(StrEnum):
     EXACT_SHARE_CLASS = "exact_share_class"
     EXACT_COMPARTMENT = "exact_compartment"
     EXACT_FUND = "exact_fund"
-    AMBIGUOUS = "ambiguous"
+    INVALID_IDENTIFIER = "invalid_identifier"   # malformed/masked/non-valid ISIN
+    AMBIGUOUS = "ambiguous"                      # >1 plausible resolutions only
     NOT_FOUND = "not_found"
 
 

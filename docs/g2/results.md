@@ -123,3 +123,24 @@ no frontend, no FundsXML export.
   (documented out-of-scope; candidates for G3+).
 - `funds` parquet stores institution denominacion verbatim per fund —
   institutions are not yet a first-class entity table.
+
+## Post-adjudication contract tightening
+
+Two findings were raised at adjudication and fixed immediately after the
+`g2-identity-pass` tag (commit follows the tag):
+
+1. **Fallback must never look contemporaneous.** `holdings` and
+   `funds-holding` now always emit `requested_as_of`, `portfolio_period`,
+   `resolution_mode` (`latest_available_before_or_on` | `exact`) and
+   `stale` (`true` when the returned snapshot predates the requested
+   as-of month). New `--exact` flag fails when no snapshot exists at the
+   as-of month — no silent fallback. Verified live:
+   `holdings ES0138841038 --as-of 2025-10-31` →
+   `portfolio_period: 2012-03, stale: true`;
+   `--exact` at 2025-10 → `no positions snapshot exactly at 2025-10`.
+2. **Resolution vocabulary.** `invalid_identifier` added between
+   `exact_*` and `ambiguous`: masked/malformed/bad-check-digit ISINs are
+   invalid identifiers, not ambiguities. `ambiguous` is now reserved for
+   >1 plausible resolutions (e.g. one ISIN on two share classes).
+   Verified: `ES0138841039` → `invalid_identifier`; duplicated-ISIN
+   fixture → `ambiguous`.

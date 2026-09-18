@@ -156,28 +156,49 @@ def test_resolve_keys(resolved):
 
 def test_resolve_not_found(resolved):
     srows, funds = resolved
-    for ident in ("ES0138841039", "FI:999", "FI:9:9", "FI:9:0:9",
-                  "garbage", ""):
+    for ident in ("FI:999", "FI:9:9", "FI:9:0:9", "garbage", ""):
         r = resolve(ident, srows, funds)
         assert r.kind is ResolutionKind.NOT_FOUND, ident
         assert r.portfolio_owners == ()
 
 
-def test_resolve_invalid_official_isin_fails_closed(resolved):
+def test_resolve_invalid_identifier(resolved):
     srows, funds = resolved
-    # '...1013' has a wrong check digit: present in registry but INVALID —
-    # must not resolve silently.
-    bad = srows[2]
-    srows[2] = ShareClassRow(
-        share_class_key=bad.share_class_key, fund_key=bad.fund_key,
-        compartment_key=bad.compartment_key, isin_raw="ES0138841013",
-        isin_state=IsinState.INVALID.value,
-        denominacion_clase=bad.denominacion_clase,
-        xml_locator=bad.xml_locator,
-        source_artifact_id=bad.source_artifact_id)
-    r = resolve("ES0138841013", srows, funds)
+    # bad check digit — identifier itself is invalid, NOT ambiguous;
+    # ambiguity is reserved for >1 plausible resolutions.
+    for ident in ("ES0138841039", "ES0138841013", "XXXXXXXXXXXX"):
+        r = resolve(ident, srows, funds)
+        assert r.kind is ResolutionKind.INVALID_IDENTIFIER, ident
+        assert r.portfolio_owners == ()
+
+
+def test_resolve_ambiguous_only_for_multi_hit(resolved):
+    srows, funds = resolved
+    # same ISIN on two classes -> genuinely ambiguous
+    dup = ShareClassRow(
+        share_class_key="FI:9:0:9", fund_key="FI:9",
+        compartment_key="FI:9:0", isin_raw="ES0138841038",
+        isin_state=IsinState.VALID.value,
+        denominacion_clase="DUP", xml_locator="x",
+        source_artifact_id="a")
+    r = resolve("ES0138841038", srows + [dup], funds)
     assert r.kind is ResolutionKind.AMBIGUOUS
     assert r.portfolio_owners == ()
+
+
+def test_holdings_by_isin(dataset):
+    period, res, rows = holdings(dataset, "ES0138841038", None)
+    assert period == "2025-12"
+    assert res["resolved_as"] == "exact_share_class"
+    assert res["share_class_key"] == "FI:9:0:1"
+    assert res["portfolio_owners"] == ["FI:9:0"]
+    assert res["registry_artifact_id"]
+    assert res["registry_locator"].endswith("Clase[1]")
+    assert res["resolution_mode"] == "latest_available_before_or_on"
+    assert res["stale"] is False
+    assert len(rows) == 1
+    assert rows[0]["fund_key"] == "FI:9:0"
+    assert rows[0]["reported_market_value"] == Decimal("10.00")
 
 
 # ---------------------------------------------------------------------------
@@ -263,19 +284,6 @@ def dataset(tmp_path, artifact):
     return root
 
 
-def test_holdings_by_isin(dataset):
-    period, res, rows = holdings(dataset, "ES0138841038", None)
-    assert period == "2025-12"
-    assert res["resolved_as"] == "exact_share_class"
-    assert res["share_class_key"] == "FI:9:0:1"
-    assert res["portfolio_owners"] == ["FI:9:0"]
-    assert res["registry_artifact_id"]
-    assert res["registry_locator"].endswith("Clase[1]")
-    assert len(rows) == 1
-    assert rows[0]["fund_key"] == "FI:9:0"
-    assert rows[0]["reported_market_value"] == Decimal("10.00")
-
-
 def test_holdings_classes_not_duplicated(dataset):
     _, res1, rows1 = holdings(dataset, "ES0138841038", None)
     _, res2, rows2 = holdings(dataset, "ES0138841004", None)
@@ -331,9 +339,38 @@ def test_funds_by_institution(dataset):
 
 
 def test_funds_holding_enriched(dataset):
-    period, rows = funds_holding(dataset, "US0378331005", None)
+    period, meta, rows = funds_holding(dataset, "US0378331005", None)
     assert len(rows) == 2
     assert rows[0]["denominacion"] == "FONMARCH, FI"
+    assert meta["portfolio_period"] == "2025-12"
+    assert meta["stale"] is False
+
+
+def test_holdings_stale_metadata(dataset):
+    # as-of after the only snapshot -> stale, honestly labelled
+    _, res, rows = holdings(dataset, "FI:9:0", "2026-03-31")
+    assert res["requested_as_of"] == "2026-03-31"
+    assert res["portfolio_period"] == "2025-12"
+    assert res["resolution_mode"] == "latest_available_before_or_on"
+    assert res["stale"] is True
+    assert len(rows) == 1
+
+
+def test_holdings_exact(dataset):
+    # --exact: snapshot exists at the as-of month -> works
+    _, res, rows = holdings(dataset, "FI:9:0", "2025-12-15", exact=True)
+    assert res["portfolio_period"] == "2025-12"
+    assert res["resolution_mode"] == "exact"
+    assert res["stale"] is False
+    assert len(rows) == 1
+    # --exact: no snapshot at the as-of month -> fail, no fallback
+    with pytest.raises(NotFoundError, match="exactly at 2026-01"):
+        holdings(dataset, "FI:9:0", "2026-01-31", exact=True)
+
+
+def test_holdings_invalid_identifier_fails(dataset):
+    with pytest.raises(NotFoundError, match="invalid_identifier"):
+        holdings(dataset, "ES0138841039", None)  # bad check digit
 
 
 def test_identity_events(dataset, tmp_path, artifact):

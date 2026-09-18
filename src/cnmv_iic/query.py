@@ -63,7 +63,9 @@ def _latest_period(con: duckdb.DuckDBPyConnection, table: str,
     return row[0] if row and row[0] else None
 
 
-def _positions_period(con: duckdb.DuckDBPyConnection, as_of: str | None) -> str:
+def _positions_period(
+    con: duckdb.DuckDBPyConnection, as_of: str | None, *, exact: bool = False
+) -> str:
     row = con.execute(
         "SELECT count(*) FROM information_schema.tables"
         " WHERE table_name = 'positions'").fetchone()
@@ -72,10 +74,30 @@ def _positions_period(con: duckdb.DuckDBPyConnection, as_of: str | None) -> str:
             "no FONDCART positions in dataset — "
             "run `cnmv-iic update` for a cadence period")
     cutoff = as_of[:7] if as_of else None
+    if exact and cutoff is not None:
+        hit = con.execute(
+            "SELECT count(*) FROM positions WHERE period = ?",
+            [cutoff]).fetchone()
+        if not hit or not hit[0]:
+            raise NotFoundError(
+                f"no positions snapshot exactly at {cutoff} "
+                f"(--exact: no fallback to an earlier period)")
+        return cutoff
     period = _latest_period(con, "positions", cutoff)
     if period is None:
         raise NotFoundError(f"no positions for as-of {as_of}")
     return period
+
+
+def _period_meta(period: str, as_of: str | None, exact: bool) -> dict:
+    """Truthfulness metadata: never let a stale snapshot look contemporaneous."""
+    return {
+        "requested_as_of": as_of,
+        "portfolio_period": period,
+        "resolution_mode": ("exact" if exact
+                            else "latest_available_before_or_on"),
+        "stale": bool(as_of and period < as_of[:7]),
+    }
 
 
 def _registry_period(con: duckdb.DuckDBPyConnection, as_of: str | None) -> str | None:
@@ -107,17 +129,23 @@ def _fund_owners(con: duckdb.DuckDBPyConnection, period: str) -> dict[str, tuple
 
 
 def holdings(
-    root: Path | str, identifier: str, as_of: str | None
+    root: Path | str, identifier: str, as_of: str | None, *,
+    exact: bool = False,
 ) -> tuple[str, dict, list[dict]]:
-    """Reported positions for a fund/compartment/share-class at the latest
-    positions period <= as-of. Returns (period, resolution_info, rows).
+    """Reported positions for a fund/compartment/share-class.
+
+    Default temporal semantics: latest positions period <= as-of, exposed
+    honestly via `requested_as_of` / `portfolio_period` / `resolution_mode` /
+    `stale` — a fallback snapshot can never masquerade as contemporaneous.
+    `exact=True` fails when no snapshot exists at the as-of month itself.
 
     When registry data exists, the identifier is resolved fail-closed through
     FONDREGISTRO (ISIN -> share class -> compartment portfolio owner). Without
     registry data the identifier is treated as a positions key directly.
     """
     con = _con(root)
-    period = _positions_period(con, as_of)
+    period = _positions_period(con, as_of, exact=exact)
+    meta = _period_meta(period, as_of, exact)
 
     reg_period = _registry_period(con, period)
     if reg_period is not None:
@@ -126,7 +154,8 @@ def holdings(
             share_classes=_share_class_rows(con, reg_period),
             funds=_fund_owners(con, reg_period),
         )
-        if resolution.kind == ResolutionKind.AMBIGUOUS:
+        if resolution.kind in (ResolutionKind.AMBIGUOUS,
+                               ResolutionKind.INVALID_IDENTIFIER):
             raise NotFoundError(
                 f"cannot resolve {identifier!r}: {resolution.kind.value}"
                 + (f" — {resolution.note}" if resolution.note else ""))
@@ -144,7 +173,7 @@ def holdings(
             info["resolved_as"] = kind.value
             info["note"] = ((resolution.note or "")
                             + " — matched positions key directly").strip(" —")
-            return period, info, rows
+            return period, info | meta, rows
         owners = list(resolution.portfolio_owners)
         con.execute(
             "SELECT position_seq, kind, clase_if, descripcion_if,"
@@ -156,10 +185,11 @@ def holdings(
             " ORDER BY fund_key, position_seq",
             [period, *owners],
         )
-        return period, _resolution_info(resolution), _rows(con)
+        return period, _resolution_info(resolution) | meta, _rows(con)
 
     # Fallback: no registry ingested — treat identifier as a positions key.
-    if _ISIN_LIKE.fullmatch(identifier):
+    if _ISIN_LIKE.fullmatch(identifier) or (
+            len(identifier) == 12 and identifier[:2].isalpha()):
         raise NotFoundError(
             "share-class ISIN lookup requires FONDREGISTRO data "
             "(re-run `cnmv-iic update`)")
@@ -179,7 +209,7 @@ def holdings(
         "registry_locator": None,
         "note": "resolved without registry data",
     }
-    return period, info, rows
+    return period, info | meta, rows
 
 
 def _positions_by_key(
@@ -227,16 +257,19 @@ def _resolution_info(res: Resolution) -> dict:
 
 
 def funds_holding(
-    root: Path | str, isin: str, as_of: str | None
-) -> tuple[str, list[dict]]:
+    root: Path | str, isin: str, as_of: str | None, *,
+    exact: bool = False,
+) -> tuple[str, dict, list[dict]]:
     """Funds reporting a position in `isin` — REPORTED PORTFOLIO POSITIONS.
 
     This is not beneficial ownership: it enumerates funds whose disclosed
-    portfolio includes the instrument at the latest period <= as-of.
-    Fund names come from FONDREGISTRO at the same period when available.
+    portfolio includes the instrument at the latest period <= as-of
+    (or the exact as-of month with `exact=True`). Fund names come from
+    FONDREGISTRO at the same period when available.
     """
     con = _con(root)
-    period = _positions_period(con, as_of)
+    period = _positions_period(con, as_of, exact=exact)
+    meta = _period_meta(period, as_of, exact)
     if _registry_period(con, period) is not None:
         con.execute(
             "SELECT p.fund_key, f.denominacion, p.entity_type,"
@@ -259,7 +292,7 @@ def funds_holding(
             " ORDER BY reported_market_value DESC NULLS LAST",
             [period, isin],
         )
-    return period, _rows(con)
+    return period, meta, _rows(con)
 
 
 def _require_registry(root: Path | str) -> duckdb.DuckDBPyConnection:
