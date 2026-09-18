@@ -8,8 +8,10 @@ files.
 G1 FONDCART holdings ledger **PASS** (`docs/g1/results.md`, tag
 `g1-holdings-pass`) → G2 FONDREGISTRO regulatory identity layer **PASS**
 (`docs/g2/results.md`, tag `g2-identity-pass`) → G3 FONDMENS daily
-share-class observations implemented: NAV/AUM/investors per
-`(share_class_key, observation_date)` with explicit observation states.
+share-class observations **PASS** (`docs/g3/results.md`, tag
+`g3-daily-pass`) → G4 FONDTRIM + FONDPATRIMDISVAR implemented: quarterly
+class-level metrics/fees/official returns and compartment patrimony +
+variation, with informational cross-family reconciliation.
 
 ## What this is (and isn't)
 
@@ -58,6 +60,18 @@ cnmv-iic aum ES0138841038 --from 2025-01-01 --to 2025-12-31
 cnmv-iic investors ES0138841038 --from 2025-01-01 --to 2025-12-31
 cnmv-iic class ES0138841038                   # identity + observation coverage
 
+# quarterly share-class metrics (FONDTRIM) — verbatim fields by unit basis
+cnmv-iic metrics ES0138841038 --as-of 2025-12
+cnmv-iic fees ES0138841038 --as-of 2025-12      # fee block, pct verbatim
+cnmv-iic official-returns ES0138841038         # official CNMV returns
+
+# compartment patrimony + variation (FONDPATRIMDISVAR)
+cnmv-iic allocation FI:9:0 --as-of 2025-12      # stock (monetary) + flow (pct)
+
+# informational cross-family comparison (equality never required)
+cnmv-iic reconcile 2025-12
+cnmv-iic reconcile 2025-12 --tolerance 0.005
+
 # funds reporting a position in an instrument
 # (REPORTED PORTFOLIO POSITIONS — not beneficial ownership)
 cnmv-iic funds-holding ES0113900J37 --as-of 2025-12-31
@@ -81,9 +95,15 @@ or `$CNMV_IIC_DATA_DIR`).
 - **No portfolio duplication** — N share classes of one compartment resolve
   to the same FONDCART portfolio owner; positions are never materialized
   per class.
-- **Determinism** — canonical row order + `dataset_fingerprint` (positions),
-  `registry_fingerprint` (identity tables) and `daily_fingerprint`
-  (FONDMENS), all SHA-256 over canonical rows, independent of Parquet bytes.
+- **Determinism** — canonical row order + independent SHA-256 fingerprints
+  per family: `dataset_fingerprint` (positions), `registry_fingerprint`
+  (identity), `daily_fingerprint` (FONDMENS), `quarterly_fingerprint`
+  (FONDTRIM), `patrimony_fingerprint` (FONDPATRIMDISVAR).
+- **Units never conflated** — monetary fields keep their denomination
+  currency (`codigo_divisa` per class / `codigo_divisa_iic` per IIC);
+  PDV flow fields are signed percentages over average daily patrimonio,
+  kept rigidly apart from monetary stock fields. `RatioTotalGastos` is
+  verbatim, never "TER"; official returns are verbatim, never recomputed.
 - **Explicit observation states** — FONDMENS `'0'` is a no-observation
   sentinel (boundary-only, measured never interior). Every daily metric
   carries `observed` / `source_zero_sentinel` / `missing` / `invalid`, the
