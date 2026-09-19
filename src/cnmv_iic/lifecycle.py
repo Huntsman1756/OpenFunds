@@ -19,9 +19,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha256
 
+from cnmv_iic.versions import LIFECYCLE_PARSER_VERSION, LIFECYCLE_RULE_VERSION
+
 PARSER = "cnmv_iic.lifecycle"
-PARSER_VERSION = "1"
-RULE_VERSION = "1"
+PARSER_VERSION = LIFECYCLE_PARSER_VERSION
+RULE_VERSION = LIFECYCLE_RULE_VERSION
 
 
 class SourceFamily(StrEnum):

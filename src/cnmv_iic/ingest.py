@@ -161,6 +161,56 @@ def export_artifact(
             fondderi_present=manifest.get("fondderi_present", False),
         )
 
+    parsed = _parse_artifact_members(store, artifact)
+    records = parsed["records"]
+    daily = parsed["daily"]
+    quarterly = parsed["quarterly"]
+    patrimony = parsed["patrimony"]
+    derivatives = parsed["derivatives"]
+    derivative_coverage = parsed["derivative_coverage"]
+    snaps = parsed["snaps"]
+
+    manifest = write_period(
+        dataset_root, snaps, period=period,
+        artifact_id=artifact.source_id, records=records, daily=daily,
+        quarterly=quarterly, patrimony=patrimony,
+        derivatives=derivatives,
+        derivative_coverage=derivative_coverage,
+    )
+    return UpdateResult(
+        period=period, artifact=artifact, artifact_new=is_new,
+        exported=True,
+        dataset_fingerprint=manifest["dataset_fingerprint"],
+        registry_fingerprint=manifest.get("registry_fingerprint"),
+        daily_fingerprint=manifest.get("daily_fingerprint"),
+        quarterly_fingerprint=manifest.get("quarterly_fingerprint"),
+        patrimony_fingerprint=manifest.get("patrimony_fingerprint"),
+        derivatives_fingerprint=manifest.get("derivatives_fingerprint"),
+        positions=manifest["positions"],
+        quality_rows=manifest["quality_rows"],
+        funds=manifest.get("funds", 0),
+        share_classes=manifest.get("share_classes", 0),
+        daily_observations=manifest.get("daily_observations", 0),
+        quarterly_metrics=manifest.get("quarterly_metrics", 0),
+        patrimony_records=manifest.get("patrimony_records", 0),
+        derivative_operations=manifest.get("derivative_operations", 0),
+        derivative_coverage_records=manifest.get(
+            "derivative_coverage_records", 0),
+        fondcart_present=manifest["fondcart_present"],
+        fondmens_present=manifest.get("fondmens_present", False),
+        fondtrim_present=manifest.get("fondtrim_present", False),
+        fondpatrimdisvar_present=manifest.get(
+            "fondpatrimdisvar_present", False),
+        fondderi_present=manifest.get("fondderi_present", False),
+    )
+
+
+def _parse_artifact_members(
+    store: ArtifactStore, artifact: SourceArtifact,
+) -> dict:
+    """Parse every recognized member of a stored artifact — pure
+    function of artifact bytes + parser versions. Used by both
+    export_artifact (write path) and verify (re-derivation path)."""
     zf = zipfile.ZipFile(store.raw_path(artifact))
 
     # XSD fingerprint gate — fail closed on unknown schema generations.
@@ -271,39 +321,15 @@ def export_artifact(
             f"FONDPATRIMDISVAR all absent)"
         )
 
-    manifest = write_period(
-        dataset_root, snaps, period=period,
-        artifact_id=artifact.source_id, records=records, daily=daily,
-        quarterly=quarterly, patrimony=patrimony,
-        derivatives=derivatives,
-        derivative_coverage=derivative_coverage,
-    )
-    return UpdateResult(
-        period=period, artifact=artifact, artifact_new=is_new,
-        exported=True,
-        dataset_fingerprint=manifest["dataset_fingerprint"],
-        registry_fingerprint=manifest.get("registry_fingerprint"),
-        daily_fingerprint=manifest.get("daily_fingerprint"),
-        quarterly_fingerprint=manifest.get("quarterly_fingerprint"),
-        patrimony_fingerprint=manifest.get("patrimony_fingerprint"),
-        derivatives_fingerprint=manifest.get("derivatives_fingerprint"),
-        positions=manifest["positions"],
-        quality_rows=manifest["quality_rows"],
-        funds=manifest.get("funds", 0),
-        share_classes=manifest.get("share_classes", 0),
-        daily_observations=manifest.get("daily_observations", 0),
-        quarterly_metrics=manifest.get("quarterly_metrics", 0),
-        patrimony_records=manifest.get("patrimony_records", 0),
-        derivative_operations=manifest.get("derivative_operations", 0),
-        derivative_coverage_records=manifest.get(
-            "derivative_coverage_records", 0),
-        fondcart_present=manifest["fondcart_present"],
-        fondmens_present=manifest.get("fondmens_present", False),
-        fondtrim_present=manifest.get("fondtrim_present", False),
-        fondpatrimdisvar_present=manifest.get(
-            "fondpatrimdisvar_present", False),
-        fondderi_present=manifest.get("fondderi_present", False),
-    )
+    return {
+        "records": records,
+        "daily": daily,
+        "quarterly": quarterly,
+        "patrimony": patrimony,
+        "derivatives": derivatives,
+        "derivative_coverage": derivative_coverage,
+        "snaps": snaps,
+    }
 
 
 def _month_range(first: str, last: str) -> list[str]:

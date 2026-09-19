@@ -384,7 +384,9 @@ def fund_info(
         share_classes=_share_class_rows(con, period),
         funds=_fund_owners(con, period),
     )
-    if resolution.kind in (ResolutionKind.NOT_FOUND, ResolutionKind.AMBIGUOUS):
+    if resolution.kind in (ResolutionKind.NOT_FOUND,
+                           ResolutionKind.AMBIGUOUS,
+                           ResolutionKind.INVALID_IDENTIFIER):
         raise NotFoundError(
             f"cannot resolve {identifier!r}: {resolution.kind.value}"
             + (f" — {resolution.note}" if resolution.note else ""))
@@ -2456,9 +2458,11 @@ def funds_exposed_to(
 
 
 def dataset_info(root: Path | str) -> dict:
+    from cnmv_iic.versions import contract
     root = Path(root)
     con = _con(root)
-    out: dict = {"periods": [], "per_period": [], "registry_periods": []}
+    out: dict = {"periods": [], "per_period": [], "registry_periods": [],
+                 "compatibility": contract()}
     tables = {r[0] for r in con.execute(
         "SELECT table_name FROM information_schema.tables").fetchall()}
     if "positions" in tables:

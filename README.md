@@ -98,10 +98,19 @@ cnmv-iic source <artifact-id-or-sha-prefix>
 # lifecycle: what happened to a fund (G9 derived read model)
 cnmv-iic lifecycle-fund FI:5534                 # adjudication + edges
 cnmv-iic predecessors-of FI:2359                # funds absorbed by it
+
+# reproducible local build: backfill + lifecycle + offline verify
+cnmv-iic sync --from 2012-01                    # --with-hr for the HR crawl
+cnmv-iic verify                                 # re-derive all fingerprints
 ```
 
 Every command accepts `--json` and `--data-dir` (default `~/.cnmv-iic`,
 or `$CNMV_IIC_DATA_DIR`).
+
+The supported Python surface is `cnmv_iic.api` (`open_dataset()` →
+`Dataset`) — see `docs/releases/public-api-v0.1.md` for the frozen
+contract, `docs/releases/user-guide-v0.1.md` for real examples, and
+`docs/releases/distribution-policy.md` for what is redistributed.
 
 ## Design guarantees
 
@@ -184,6 +193,9 @@ src/cnmv_iic/
   lifecycle*.py  G9: source-assertion ledger, participants, evidence
                  profiles, frozen adjudication engine (g9e-v1),
                  derived read model
+  api.py         stable public API (Dataset) — the supported contract
+  verify.py      offline fingerprint re-derivation + invariant checks
+  versions.py    compatibility contract (schema/model/engine/parser)
   cli.py         typer CLI
 tests/           synthetic fixtures only — no CNMV bytes
 docs/research/   landscape, source map, schema history, licensing, gaps, risks

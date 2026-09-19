@@ -30,6 +30,7 @@ from cnmv_iic.lifecycle import (
 )
 from cnmv_iic.lifecycle_adjudicate import LifecycleAdjudicationRow, LineageEdge
 from cnmv_iic.storage import _write_table, canonical_fingerprint
+from cnmv_iic.versions import contract
 
 SOURCE_DOCUMENTS_SCHEMA = pa.schema([
     ("source_document_id", pa.string()),
@@ -427,6 +428,7 @@ def write_lifecycle(
         "adjudications_fingerprint": canonical_fingerprint(adjrow),
         "lineage_edges_fingerprint": canonical_fingerprint(edgrow),
         "candidates_fingerprint": canonical_fingerprint(crow),
+        "versions": contract(),
     }
     (root / "manifest.json").write_text(
         json.dumps(manifest, indent=1, sort_keys=True), encoding="utf-8")

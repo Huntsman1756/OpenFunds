@@ -15,8 +15,9 @@ from dataclasses import dataclass
 from cnmv_iic.lifecycle import AssertionParticipant, LifecycleAssertion, LifecycleSourceDocument
 from cnmv_iic.lifecycle_research import CandidateEvidenceProfile, evidence_signature, profile_dict
 from cnmv_iic.storage import canonical_fingerprint
+from cnmv_iic.versions import LIFECYCLE_ENGINE_VERSION
 
-ENGINE_VERSION = "g9e-v1"
+ENGINE_VERSION = LIFECYCLE_ENGINE_VERSION
 
 OUTCOMES = frozenset({
     "ADJUDICATED_ABSORBED_BY",

@@ -1145,6 +1145,156 @@ def predecessors_of_cmd(
     _emit(_run(lambda: _po(root / "dataset", entity_key)), json_out)
 
 
+@app.command()
+def verify(
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Offline dataset integrity check.
+
+    Recomputes every canonical fingerprint recorded in manifests/ and
+    lifecycle/manifest.json directly from the parquet tables, compares
+    against the recorded values, and re-checks lifecycle structural
+    invariants (edges ⊆ adjudicated ABSORBED_BY, out-degree ≤ 1,
+    compatibility contract). Never acquires source data."""
+    from cnmv_iic.verify import verify_dataset
+    root = data_dir or _data_dir()
+    report = _run(lambda: verify_dataset(
+        root / "dataset", root / "artifacts",
+        on_progress=lambda p: typer.echo(
+            f"re-parsing {p}", err=True)))
+    _emit({
+        "ok": report["ok"],
+        "checks": len(report["checks"]),
+        "skipped": report["skipped"],
+        "problems": report["problems"],
+        **({"detail": report["checks"]} if json_out else {}),
+    }, json_out)
+    if not report["ok"]:
+        raise typer.Exit(2)
+
+
+@app.command()
+def sync(
+    from_period: Annotated[str, typer.Option(
+        "--from", help="First publication period YYYY-MM")],
+    to_period: Annotated[str | None, typer.Option(
+        "--to", help="Last publication period YYYY-MM; default: latest "
+        "published in the CNMV index")] = None,
+    with_hr: Annotated[bool, typer.Option(
+        "--with-hr", help="Also run the per-entity HR crawl (slow)")] =
+    False,
+    skip_verify: Annotated[bool, typer.Option(
+        "--skip-verify", help="Skip the final offline verify")] = False,
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Reproducible local build: backfill + lifecycle + verify.
+
+    Orchestrates the existing acquisition/export path — it adds no new
+    ingestion logic:
+
+      1. monthly backfill (FONDREGISTRO/FONDCART/FONDMENS/FONDTRIM/
+         FONDPATRIMDISVAR/FONDDERI) — resumable, artifact-first;
+      2. weekly-bulletin acquisition for the lifecycle ledger;
+      3. optional per-entity HR crawl (--with-hr);
+      4. offline lifecycle export (ledger + adjudications + edges);
+      5. offline verify of every recorded fingerprint.
+
+    Re-running produces the same logical dataset from the same stored
+    artifacts; stored artifacts are never re-downloaded."""
+    import json as _json
+    from datetime import date
+
+    from cnmv_iic.acquisition.client import CnmvClient
+    from cnmv_iic.lifecycle_adjudicate import (
+        adjudicate,
+        derive_edges,
+        enrich_adjudications,
+    )
+    from cnmv_iic.lifecycle_ingest import (
+        acquire_hr,
+        acquire_weeks,
+        assertion_participants,
+        candidate_links,
+        disappearance_candidates,
+        fondregistro_markers,
+        holdout_ids,
+        hr_ledger,
+        weekly_ledger,
+    )
+    from cnmv_iic.lifecycle_research import evidence_profiles
+    from cnmv_iic.lifecycle_storage import write_lifecycle
+    from cnmv_iic.verify import verify_dataset
+
+    root = data_dir or _data_dir()
+    store = ArtifactStore(root / "artifacts")
+    ds = root / "dataset"
+    steps: dict = {}
+
+    if to_period is None:
+        client = _run(lambda: CnmvClient())
+        today = date.today()
+        for year in range(today.year, today.year - 3, -1):
+            months = _run(lambda y=year: client.list_months(y))
+            if months:
+                to_period = f"{year}-{max(months):02d}"
+                break
+        if to_period is None:
+            raise typer.BadParameter(
+                "no published periods found in the CNMV index")
+
+    steps["backfill"] = _run(lambda: backfill_periods(
+        store, ds, from_period, to_period))
+    steps["lifecycle_weeks"] = _run(lambda: acquire_weeks(
+        store, ds, from_period, to_period,
+        on_progress=lambda d, t: typer.echo(f"{d}/{t} weeks", err=True)))
+    if with_hr:
+        steps["lifecycle_hr"] = _run(lambda: acquire_hr(
+            store, ds, Path("docs/g9/blind-holdout-manifest.json"),
+            on_progress=lambda d, t: typer.echo(
+                f"{d}/{t} entities", err=True)))
+
+    hindex_path = ds / "lifecycle" / "hr_index.json"
+    hindex = (_json.loads(hindex_path.read_text(encoding="utf-8"))
+              if hindex_path.exists() else {})
+    w_docs, w_obs, w_asserts = weekly_ledger(store)
+    h_docs, h_obs, h_asserts, resolutions = hr_ledger(store, hindex)
+    f_docs, f_obs, f_asserts = fondregistro_markers(ds, store)
+    all_asserts = w_asserts + h_asserts + f_asserts
+    sealed = holdout_ids(Path("docs/g9/blind-holdout-manifest.json"))
+    cands = disappearance_candidates(ds)
+    links = candidate_links(cands, all_asserts, sealed)
+    all_obs = w_obs + h_obs + f_obs
+    parts = assertion_participants(all_asserts, all_obs)
+    profiles = evidence_profiles(cands, all_asserts, parts, resolutions,
+                                 set())
+    records = adjudicate(profiles, all_asserts, parts)
+    adj_rows = enrich_adjudications(
+        records, profiles, all_asserts, w_docs + h_docs + f_docs)
+    edges = derive_edges(records)
+    steps["lifecycle_export"] = _run(lambda: write_lifecycle(
+        ds, documents=w_docs + h_docs + f_docs, observations=all_obs,
+        assertions=all_asserts, entity_resolutions=resolutions,
+        candidate_links=links, candidates=cands, participants=parts,
+        adjudications=adj_rows, lineage_edges=edges))
+
+    if not skip_verify:
+        report = _run(lambda: verify_dataset(
+            ds, root / "artifacts",
+            on_progress=lambda p: typer.echo(
+                f"re-parsing {p}", err=True)))
+        steps["verify"] = {
+            "ok": report["ok"], "checks": len(report["checks"]),
+            "problems": report["problems"]}
+        if not report["ok"]:
+            _emit({"range": f"{from_period}..{to_period}",
+                   "steps": steps}, json_out)
+            raise typer.Exit(2)
+
+    _emit({"range": f"{from_period}..{to_period}", "steps": steps},
+          json_out)
+
 
 if __name__ == "__main__":  # pragma: no cover
     main()
