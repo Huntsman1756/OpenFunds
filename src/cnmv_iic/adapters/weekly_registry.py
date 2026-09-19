@@ -59,7 +59,9 @@ FUND_HDR = re.compile(
 #: never produces FI assertions.
 _FI_EVIDENCE = re.compile(
     r",\s*(FI COTIZADO|FIIF|FIM|FICC|FI)\b|"
-    r"Registro Administrativo de Fondos de Inversi", re.I)
+    r"\bFI\s+\d{2,6}\b|\bFI\s*$|"       # 'NAME FI <regnum>' rows and
+    r"Registro Administrativo de Fondos de Inversi",   # names w/o comma
+    re.I | re.M)
 
 #: Known ALL-CAPS header lines inside the FI section (normalized text).
 #: They mark context only — never trusted as content boundaries.
