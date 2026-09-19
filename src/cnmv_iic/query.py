@@ -85,6 +85,18 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
                 f"CREATE VIEW {table} AS "
                 f"SELECT * FROM read_parquet('{glob}', hive_partitioning=true)"
             )
+    # G9-B lifecycle source-assertion ledger — flat tables under
+    # lifecycle/ (no partitioning; rewritten per export)
+    lc = root / "lifecycle"
+    for table in ("source_documents", "source_observations",
+                  "assertions", "entity_resolutions", "candidate_links",
+                  "candidates"):
+        if (lc / table).exists():
+            glob = str(lc / table / "*.parquet")
+            con.execute(
+                f"CREATE VIEW lifecycle_{table} AS "
+                f"SELECT * FROM read_parquet('{glob}')"
+            )
     return con
 
 

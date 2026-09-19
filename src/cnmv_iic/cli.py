@@ -413,6 +413,33 @@ def lifecycle_acquire_weeks(
     _emit(out, json_out)
 
 
+@app.command(name="lifecycle-export")
+def lifecycle_export(
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """G9-B — rebuild the source-assertion ledger from stored artifacts.
+
+    Pure offline function of raw artifact bytes + parser/rule versions:
+    weekly registry documents -> source observations -> descriptive
+    assertions -> parquet + fingerprints. No network, no clocks."""
+    from cnmv_iic.lifecycle_ingest import weekly_ledger
+    from cnmv_iic.lifecycle_storage import write_lifecycle
+
+    root = data_dir or _data_dir()
+    store = ArtifactStore(root / "artifacts")
+    docs, observations, assertions = weekly_ledger(store)
+    out = _run(lambda: write_lifecycle(
+        root / "dataset",
+        documents=docs,
+        observations=observations,
+        assertions=assertions,
+        entity_resolutions=[],
+        candidate_links=[],
+        candidates=[]))
+    _emit(out, json_out)
+
+
 @app.command()
 def adjudicate(
     data_dir: Annotated[Path | None, typer.Option()] = None,

@@ -24,13 +24,30 @@ from cnmv_iic.acquisition.weekly import (
     WeeklyBulletinClient,
     WeekOption,
 )
+from cnmv_iic.adapters.weekly_registry import (
+    PARSER as WEEKLY_PARSER,
+)
+from cnmv_iic.adapters.weekly_registry import (
+    PARSER_VERSION as WEEKLY_PARSER_VERSION,
+)
+from cnmv_iic.adapters.weekly_registry import (
+    bulletin_assertions,
+    parse_registry_document,
+)
 from cnmv_iic.artifacts.store import ArtifactStore, SourceArtifact
 from cnmv_iic.errors import CnmvIicError
 from cnmv_iic.lifecycle import (
+    RULE_VERSION,
     DisappearanceCandidate,
+    IdentityState,
+    LifecycleAssertion,
+    LifecycleSourceDocument,
+    LifecycleSourceObservation,
     SourceFamily,
+    make_assertion_id,
     make_candidate_id,
     make_source_document_id,
+    make_source_observation_id,
 )
 
 WEEKLY_FAMILY = SourceFamily.WEEKLY_REGISTRY.value
@@ -307,3 +324,139 @@ def weekly_document_rows(
             })
             prev_doc_id = doc_id
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Weekly parse → observations + assertions (pure, offline)
+# ---------------------------------------------------------------------------
+
+
+def weekly_ledger(
+        store: ArtifactStore) -> tuple[
+            list[LifecycleSourceDocument],
+            list[LifecycleSourceObservation],
+            list[LifecycleAssertion]]:
+    """Parse every stored weekly artifact into source documents,
+    observations and assertions. Fully deterministic — depends only on
+    raw artifact bytes + parser/rule versions."""
+    docs: list[LifecycleSourceDocument] = []
+    observations: list[LifecycleSourceObservation] = []
+    assertions: list[LifecycleAssertion] = []
+    for a in store.load():
+        if a.source_family != WEEKLY_FAMILY:
+            continue
+        m = _DOC_ROLE_RE.match(a.period)
+        if not m:
+            continue
+        role = m.group(2)
+        logical = f"weekly_registry/{a.period}"
+        doc_id = make_source_document_id(
+            WEEKLY_FAMILY, logical, a.sha256)
+        if role not in ("registro", "boletin_completo"):
+            docs.append(LifecycleSourceDocument(
+                source_document_id=doc_id,
+                source_family=WEEKLY_FAMILY,
+                logical_source_key=logical,
+                source_role=role,
+                source_url=a.source_url_ephemeral,
+                publication_date=None,
+                publication_datetime=None,
+                retrieved_at=a.retrieved_at,
+                raw_sha256=a.sha256,
+                content_type=a.content_type,
+                size_bytes=a.size_bytes,
+                artifact_id=a.source_id,
+                supersedes_document_id=None,
+                parser_eligible=False,
+                week_label=None))
+            continue
+        parsed = parse_registry_document(
+            store.raw_path(a).read_bytes())
+        pub_dt = None
+        if parsed.week_label:
+            end = parsed.week_label.split(" al ")[-1]
+            try:
+                pub_dt = datetime.strptime(
+                    end, "%d/%m/%Y").date().isoformat()
+            except ValueError:
+                pub_dt = None
+        docs.append(LifecycleSourceDocument(
+            source_document_id=doc_id,
+            source_family=WEEKLY_FAMILY,
+            logical_source_key=logical,
+            source_role=role,
+            source_url=a.source_url_ephemeral,
+            publication_date=pub_dt,
+            publication_datetime=None,
+            retrieved_at=a.retrieved_at,
+            raw_sha256=a.sha256,
+            content_type=a.content_type,
+            size_bytes=a.size_bytes,
+            artifact_id=a.source_id,
+            supersedes_document_id=None,
+            parser_eligible=True,
+            week_label=parsed.week_label))
+        for seq, o in enumerate(parsed.observations):
+            obs_id = make_source_observation_id(doc_id, o.source_locator, seq)
+            observations.append(LifecycleSourceObservation(
+                source_observation_id=obs_id,
+                source_document_id=doc_id,
+                source_family=WEEKLY_FAMILY,
+                logical_source_key=logical,
+                source_section_raw=o.source_section_raw,
+                subject_name_raw=o.subject_name_raw,
+                subject_register_number_raw=o.subject_register_number_raw,
+                regnums_in_text=json.dumps(
+                    list(o.regnums_in_text), ensure_ascii=False),
+                successor_regnums=json.dumps(
+                    list(o.successor_regnums), ensure_ascii=False),
+                entity_name_raw=None,
+                entity_nif=None,
+                entity_resolution_state=None,
+                resolved_fund_key=None,
+                official_event_registration_number=None,
+                publication_datetime=pub_dt,
+                category_raw=None,
+                observation_text_verbatim=o.observation_text_verbatim,
+                attachment_url=None,
+                source_locator=o.source_locator,
+                correction_indicator=False,
+                representation=o.representation,
+                parser=WEEKLY_PARSER,
+                parser_version=WEEKLY_PARSER_VERSION))
+            for aseq, (atype, stage, subj, obj, oname) in enumerate(
+                    bulletin_assertions(o)):
+                subject_key = f"FI:{subj}" if subj else None
+                object_key = f"FI:{obj}" if obj else None
+                assertions.append(LifecycleAssertion(
+                    assertion_id=make_assertion_id(
+                        obs_id, atype, subj or "", obj or "", aseq),
+                    source_observation_id=obs_id,
+                    source_document_id=doc_id,
+                    source_family=WEEKLY_FAMILY,
+                    assertion_type=atype,
+                    assertion_stage=stage,
+                    subject_key=subject_key,
+                    subject_identifier_type=(
+                        "cnmv_register_number" if subj else None),
+                    subject_identifier_raw=subj,
+                    object_key=object_key,
+                    object_identifier_type=(
+                        "cnmv_register_number" if obj else (
+                            "verbatim_name" if oname else None)),
+                    object_identifier_raw=obj or oname,
+                    asserted_date=None,
+                    asserted_date_semantics=None,
+                    publication_datetime=pub_dt,
+                    raw_text=o.observation_text_verbatim[:2000],
+                    source_locator=o.source_locator,
+                    identity_state=(
+                        IdentityState.EXACT_REGISTER_NUMBER.value
+                        if subj else IdentityState.UNRESOLVED.value),
+                    representation=o.representation,
+                    correction_of_observation_id=None,
+                    supersedes_assertion_id=None,
+                    correction_target_state=None,
+                    parser_version=WEEKLY_PARSER_VERSION,
+                    rule_version=RULE_VERSION))
+    return docs, observations, assertions
