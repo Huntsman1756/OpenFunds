@@ -207,6 +207,9 @@ def acquire_weeks(
                 source_family=WEEKLY_FAMILY)
             or store.latest_for_period(
                 _week_key(w.week_id, "boletin_completo"),
+                source_family=WEEKLY_FAMILY)
+            or store.latest_for_period(
+                _week_key(w.week_id, "selection"),
                 source_family=WEEKLY_FAMILY))
         if prior is not None and store.raw_path(prior).exists():
             results.append(WeekAcquireResult(
@@ -781,7 +784,64 @@ def hr_ledger(
                     correction_target_state=None,
                     parser_version=HR_PARSER_VERSION,
                     rule_version=RULE_VERSION))
+    _link_hr_corrections(observations, assertions)
     return docs, observations, assertions, list(resolutions.values())
+
+
+_CORR_DATE = re.compile(
+    r"(?:publicado|emitido|comunicado)?[^.]{0,40}?(?:con\s+)?fecha\s+"
+    r"(\d{1,2})/(\d{1,2})/(\d{4})", re.I)
+
+
+def _link_hr_corrections(
+        observations: list[LifecycleSourceObservation],
+        assertions: list[LifecycleAssertion]) -> None:
+    """Correction chains: a rectification that names an explicit prior
+    event date links to that observation iff unique within the entity
+    history; otherwise the target stays ``unresolved`` — never pick
+    'the closest previous one' automatically."""
+    by_key = {
+        o.source_observation_id: o
+        for o in observations
+        if o.source_family == HR_FAMILY}
+    by_entity_date: dict[tuple[str, str], list[str]] = {}
+    for o in by_key.values():
+        if o.publication_datetime:
+            by_entity_date.setdefault(
+                (o.logical_source_key.split("/")[2],
+                 o.publication_datetime[:10]), []).append(
+                o.source_observation_id)
+    corr_of: dict[str, str | None] = {}
+    corr_state: dict[str, str | None] = {}
+    for o in by_key.values():
+        if not o.correction_indicator:
+            continue
+        m = _CORR_DATE.search(o.observation_text_verbatim)
+        if not m:
+            corr_state[o.source_observation_id] = "unresolved"
+            continue
+        day = (f"{int(m.group(3)):04d}-{int(m.group(2)):02d}-"
+               f"{int(m.group(1)):02d}")
+        targets = by_entity_date.get(
+            (o.logical_source_key.split("/")[2], day), [])
+        targets = [t for t in targets
+                   if t != o.source_observation_id]
+        if len(targets) == 1:
+            corr_of[o.source_observation_id] = targets[0]
+            corr_state[o.source_observation_id] = "resolved"
+        else:
+            corr_state[o.source_observation_id] = "unresolved"
+    for i, a in enumerate(assertions):
+        if a.source_family != HR_FAMILY:
+            continue
+        if a.assertion_type != "RECTIFICATION_REPORTED":
+            continue
+        assertions[i] = LifecycleAssertion(
+            **{**a.__dict__,
+               "correction_of_observation_id": corr_of.get(
+                   a.source_observation_id),
+               "correction_target_state": corr_state.get(
+                   a.source_observation_id, "unresolved")})
 
 
 # ---------------------------------------------------------------------------
