@@ -30,13 +30,13 @@ def dataset(tmp_path: Path, artifact) -> Path:
 
 def test_versions_contract():
     c = versions_contract()
+    # frozen v0.1 values — a breaking change must bump, never drift
     assert c["dataset_schema_version"] == "1"
-    assert c["lifecycle_engine_version"] == LIFECYCLE_ENGINE_VERSION
-    assert c["lifecycle_engine_version"] == "g9e-v1"
-    for k in ("dataset_schema_version", "canonical_model_version",
-              "lifecycle_engine_version", "lifecycle_parser_version",
-              "lifecycle_rule_version", "parser_version"):
-        assert c[k], k
+    assert c["canonical_model_version"] == "0.1.0"
+    assert c["lifecycle_engine_version"] == LIFECYCLE_ENGINE_VERSION == "g9e-v1"
+    assert c["lifecycle_parser_version"] == "1"
+    assert c["lifecycle_rule_version"] == "1"
+    assert c["parser_version"] == "0.1.0"
 
 
 def test_dataset_fund_and_holdings(dataset):

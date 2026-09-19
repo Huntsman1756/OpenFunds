@@ -1,7 +1,8 @@
 # Local research evidence (downloaded CNMV bytes, third-party clones) — never publish
 .research/
 data/
-.tmp-live*/
+.tmp-*/
+dist/
 __pycache__/
 *.pyc
 .venv/

@@ -1,8 +1,8 @@
 # cnmv-iic
 
-Open, reproducible, provenance-preserving data infrastructure for Spanish
-collective investment schemes (IIC), built on official CNMV dissemination
-files.
+Open, reproducible, traceable infrastructure to reconstruct the registry,
+time series, portfolios, exposures, and historical lifecycle of Spanish
+collective investment schemes (IIC) from official CNMV evidence.
 
 **Status:** G0 viability research **PASS** (`docs/g0/results.md`) →
 G1 FONDCART holdings ledger **PASS** (`docs/g1/results.md`, tag
@@ -30,8 +30,22 @@ transaction verbs), unresolved ambiguous groups, conservation checks.
 ## Install
 
 ```bash
-pip install -e ".[dev]"
+pip install cnmv-iic          # or: pip install -e ".[dev]" from a clone
 ```
+
+## Five-minute value test
+
+```bash
+cnmv-iic update --period 2025-12        # one real CNMV period (~minutes)
+cnmv-iic holdings ES0138841038          # a fund's reported portfolio
+cnmv-iic funds-holding ES0000012F76     # funds reporting a position
+cnmv-iic nav ES0138841038               # daily NAV series (FONDMENS)
+cnmv-iic verify                         # re-derive fingerprints offline
+```
+
+A full `sync --from 2012-01` rebuilds the whole history: roughly a day of
+polite CNMV downloads (~4k requests, ~1.5 GB raw artifacts, ~0.6 GB RAM
+peak per period) yielding ~0.6 GB of Parquet.
 
 ## Use
 
@@ -111,6 +125,18 @@ The supported Python surface is `cnmv_iic.api` (`open_dataset()` →
 `Dataset`) — see `docs/releases/public-api-v0.1.md` for the frozen
 contract, `docs/releases/user-guide-v0.1.md` for real examples, and
 `docs/releases/distribution-policy.md` for what is redistributed.
+
+## Compatibility
+
+Frozen at v0.1 (`cnmv_iic.versions.contract()`, also in every manifest):
+`dataset_schema_version=1`, `canonical_model_version=0.1.0`,
+`lifecycle_engine_version=g9e-v1`, `parser_version=0.1.0`. A breaking
+change to any layer requires bumping that version or an explicit
+migration — never a silent semantic change under the same version.
+`verify` reports `SAME_SOURCE_SET_SAME_DATASET` /
+`SOURCE_REVISION_DETECTED` / `LOCAL_DERIVATION_MISMATCH` /
+`MISSING_SOURCE_ARTIFACT`, so a CNMV republished ZIP is distinguishable
+from a local reproducibility failure.
 
 ## Design guarantees
 
