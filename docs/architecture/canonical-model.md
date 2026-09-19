@@ -49,3 +49,43 @@ PortfolioSnapshot   (compartment_key, period)
 
 transactions, prices other than VL, beneficial ownership, foreign-IIC holdings,
 pension plans (DGSFP, different regulator).
+
+## Lifecycle layer (G9 — implemented, not draft)
+
+The disappearance/adjudication chain is a separate layer with its own
+grain and semantics — it does not merge into the entities above:
+
+```
+SourceArtifact (immutable bytes, sha256)
+  └─ LifecycleSourceDocument          # bulletin week / HR history / registry marker
+       └─ LifecycleSourceObservation  # typed row/event, verbatim text preserved
+            └─ LifecycleAssertion     # typed+staged claim (family × stage)
+                 └─ AssertionParticipant  # multiparty evidence grain
+                      role: SUBJECT|ABSORBED|ABSORBING|TARGET|UNKNOWN
+                      identity_state: exact_register_number|unresolved
+
+DisappearanceCandidate               # observational (registry diff)
+  └─ CandidateEvidenceLink           # exact regnum links only
+  └─ EntityResolution                # HR identity discovery state
+  └─ CandidateEvidenceProfile        # derived research summary (G9-C)
+       └─ LifecycleAdjudication      # engine output (g9e-v1, 7 rules)
+            outcome: ADJUDICATED_ABSORBED_BY | ADJUDICATED_LIQUIDATED |
+                     INDETERMINATE_* | UNKNOWN_EXIT
+            └─ LineageEdge           # derived read model (G9-F)
+                 ABSORBED_BY only; evidence_state=ADJUDICATED
+```
+
+Hard boundaries of this layer:
+
+- Assertions preserve source wording/stage; `AUTHORIZED` never promotes
+  to `EXECUTED`; corrections supersede via links, originals persist.
+- Participant roles come only from source wording — no fuzzy matching;
+  `unresolved` never promotes to `exact_register_number`.
+- Adjudications are engine conclusions, not source facts; every row
+  carries `rule_id` + `engine_version` + evidence provenance.
+- Edges are derived (`evidence_state=ADJUDICATED`) — the conclusion of
+  an assertion set, never an observed fact. Only `ADJUDICATED_ABSORBED_BY`
+  produces edges; `INDETERMINATE_*`/`UNKNOWN_EXIT` produce none.
+- Evidence dates are kept per class (authorization / registration /
+  execution / deregistration); no single `effective_date` is invented.
+- `SUCCESSOR_OF`/inverses are queryable, never stored.

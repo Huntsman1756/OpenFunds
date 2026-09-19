@@ -1118,10 +1118,6 @@ def main() -> None:  # pragma: no cover
     app()
 
 
-if __name__ == "__main__":  # pragma: no cover
-    main()
-
-
 @app.command(name="lifecycle-fund")
 def lifecycle_fund_cmd(
     entity_key: Annotated[str, typer.Argument(
@@ -1147,3 +1143,8 @@ def predecessors_of_cmd(
     from cnmv_iic.query import predecessors_of as _po
     root = data_dir or _data_dir()
     _emit(_run(lambda: _po(root / "dataset", entity_key)), json_out)
+
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()

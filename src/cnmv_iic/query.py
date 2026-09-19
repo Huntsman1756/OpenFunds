@@ -2527,6 +2527,41 @@ def dataset_info(root: Path | str) -> dict:
         out["quality_states"] = {
             r[0]: r[1] for r in con.execute(
                 "SELECT state, count(*) FROM quality GROUP BY state").fetchall()}
+    # G9 lifecycle + derived lineage layers
+    lc_tables = {
+        "lifecycle_source_documents": "source_documents",
+        "lifecycle_source_observations": "observations",
+        "lifecycle_assertions": "assertions",
+        "lifecycle_assertion_participants": "participants",
+        "lifecycle_entity_resolutions": "entity_resolutions",
+        "lifecycle_candidate_links": "candidate_links",
+        "lifecycle_candidates": "candidates",
+        "lifecycle_adjudications": "adjudications",
+    }
+    lifecycle: dict = {}
+    for view, label in lc_tables.items():
+        if view in tables:
+            lifecycle[label] = (con.execute(
+                f"SELECT COUNT(*) FROM {view}").fetchone() or (0,))[0]
+    if "lifecycle_adjudications" in tables:
+        lifecycle["adjudication_outcomes"] = {
+            r[0]: r[1] for r in con.execute(
+                "SELECT adjudication, count(*) FROM"
+                " lifecycle_adjudications GROUP BY 1").fetchall()}
+        lifecycle["engine_versions"] = [r[0] for r in con.execute(
+            "SELECT DISTINCT engine_version FROM"
+            " lifecycle_adjudications").fetchall()]
+    if "lineage_edges" in tables:
+        lifecycle["lineage_edges"] = (con.execute(
+            "SELECT COUNT(*) FROM lineage_edges"
+        ).fetchone() or (0,))[0]
+    if lifecycle:
+        out["lifecycle"] = lifecycle
+    import json as _json
+    lc_manifest = root / "lifecycle" / "manifest.json"
+    if lc_manifest.exists():
+        out["lifecycle_fingerprints"] = _json.loads(
+            lc_manifest.read_text(encoding="utf-8"))
     manifests = {}
     mdir = root / "manifests"
     if mdir.exists():

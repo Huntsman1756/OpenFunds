@@ -94,6 +94,10 @@ cnmv-iic funds-holding ES0113900J37 --as-of 2025-12-31
 
 cnmv-iic dataset-info
 cnmv-iic source <artifact-id-or-sha-prefix>
+
+# lifecycle: what happened to a fund (G9 derived read model)
+cnmv-iic lifecycle-fund FI:5534                 # adjudication + edges
+cnmv-iic predecessors-of FI:2359                # funds absorbed by it
 ```
 
 Every command accepts `--json` and `--data-dir` (default `~/.cnmv-iic`,
@@ -141,6 +145,18 @@ or `$CNMV_IIC_DATA_DIR`).
 - **Conservative temporality** — registry rows carry `observed_period` and
   `source_artifact_id`; no `valid_from`/`valid_to` claims are derived yet.
   `fund-events` reports WHAT changed between two snapshots, never WHY.
+- **Provenance-preserving lifecycle** (G9) — disappearance candidates are
+  measured against a source-assertion ledger (weekly registry bulletins,
+  relevant-information histories, FONDREGISTRO markers), never inferred
+  from absence alone. Multi-party acts are normalized as
+  `assertion_participants` with source-evidence roles (`ABSORBED`,
+  `ABSORBING`, `SUBJECT`, …). A frozen 7-rule engine (`g9e-v1`) emits one
+  adjudication per candidate — `ADJUDICATED_ABSORBED_BY`,
+  `ADJUDICATED_LIQUIDATED`, `INDETERMINATE_*`, or `UNKNOWN_EXIT` — and
+  only `ADJUDICATED_ABSORBED_BY` derives `lineage/edges` rows
+  (`evidence_state=ADJUDICATED`, full assertion provenance). No invented
+  effective dates, no confidence scores, no multi-successor
+  auto-resolution, `unresolved` identity never promotes to exact.
 
 ## Cadence caveat (discovered in G0)
 
@@ -165,25 +181,32 @@ src/cnmv_iic/
   identity.py    resolution (fail-closed) + mechanical registry diff
   storage.py     deterministic Parquet + canonical fingerprints
   query.py       DuckDB read layer (positions + registry joins)
+  lifecycle*.py  G9: source-assertion ledger, participants, evidence
+                 profiles, frozen adjudication engine (g9e-v1),
+                 derived read model
   cli.py         typer CLI
 tests/           synthetic fixtures only — no CNMV bytes
 docs/research/   landscape, source map, schema history, licensing, gaps, risks
 docs/architecture/ principles, canonical model, provenance, temporal, storage
 docs/decisions/  ADRs (001-006)
-docs/g0,g1,g2/   milestone adjudication reports
+docs/g0..g9/     milestone adjudication reports
+docs/releases/   versioned baselines
 tools/g0_probe.py  reproducible CNMV probe
 .research/       local evidence — gitignored, never published
 ```
 
 ## Current scope limits (deliberate non-goals)
 
-No web/API, no issuer resolution, no corporate-group exposure, no
-look-through, no typed/normalized derivatives
+No web/API, no corporate-group exposure graph, no look-through, no
+typed/normalized derivatives
 (FONDDERI stays a verbatim evidence ledger — no parsed underlier/strike/
 expiry/counterparty, no pricing/greeks, no CDM/FpML/Strata/QuantLib
 runtime), no FundsXML export, no bulk public dataset, no derived returns
 (official returns belong to FONDTRIM — G4).
-Identity history is mechanical (WHAT changed) — fund
-additions/removals as whole events and cause attribution are out of scope.
+Issuer adjudication exists (G7/G8) but stays evidence-bounded: conflicts
+are surfaced, never silently picked. Lifecycle adjudication (G9) covers
+disappearance causes only (`ABSORBED_BY` / `LIQUIDATED` /
+`INDETERMINATE_*` / `UNKNOWN_EXIT`) — it is not a general corporate-event
+model, and identity episodes are not materialized yet.
 FONDMENS `'0'` is recorded as a sentinel, never reinterpreted; the reason
 for absence is not inferred.
