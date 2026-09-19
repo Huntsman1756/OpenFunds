@@ -21,6 +21,7 @@ caller's job (exact fund register number in event prose).
 
 from __future__ import annotations
 
+import http.client
 import http.cookiejar
 import re
 import urllib.error
@@ -91,11 +92,13 @@ class HrClient:
             url, data=data, headers=dict(_UA))
         try:
             resp = self._op.open(req, timeout=self.timeout)
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            final = resp.geturl()
+            body = resp.read()
+        except (urllib.error.URLError, TimeoutError, OSError,
+                http.client.HTTPException) as exc:
             raise HrError(f"HR request failed for {url}: {exc}") from exc
-        final = resp.geturl()
         _check_origin(final)
-        return final, resp.read()
+        return final, body
 
     def search_entity(self, denominacion: str, *,
                       desde: str = "",

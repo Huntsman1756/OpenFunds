@@ -46,7 +46,6 @@ from cnmv_iic.adapters.weekly_registry import (
     parse_registry_document,
 )
 from cnmv_iic.artifacts.store import ArtifactStore, SourceArtifact
-from cnmv_iic.errors import CnmvIicError
 from cnmv_iic.lifecycle import (
     RULE_VERSION,
     CandidateEvidenceLink,
@@ -258,14 +257,17 @@ def acquire_weeks(
                     week_id=w.week_id, label=w.label,
                     status="acquired", role=role,
                     artifact_id=artifact.source_id))
-        except CnmvIicError as exc:
+        except Exception as exc:               # noqa: BLE001
+            # per-week fail-closed — recorded, never aborts the crawl
             results.append(WeekAcquireResult(
                 week_id=w.week_id, label=w.label, status="failed",
-                role=None, artifact_id=None, error=str(exc)[:300]))
+                role=None, artifact_id=None,
+                error=f"{type(exc).__name__}: {exc}"[:300]))
             windex[w.week_id] = {
                 "label": w.label, "start": w.start.isoformat(),
                 "end": w.end.isoformat(), "role": None,
-                "status": "failed", "error": str(exc)[:300]}
+                "status": "failed",
+                "error": f"{type(exc).__name__}: {exc}"[:300]}
             continue
         res = results[-1]
         windex[w.week_id] = {
@@ -590,11 +592,13 @@ def acquire_hr(
             results.append(HrAcquireResult(
                 entity_key=key, candidate_id=c.candidate_id,
                 status="resolved", nif=res.nif, n_pages=n_done))
-        except CnmvIicError as exc:
+        except Exception as exc:               # noqa: BLE001
+            # per-entity fail-closed: one bad page must never abort a
+            # multi-thousand-entity crawl — the failure is recorded
             results.append(HrAcquireResult(
                 entity_key=key, candidate_id=c.candidate_id,
                 status="failed", nif=None, n_pages=0,
-                error=str(exc)[:300]))
+                error=f"{type(exc).__name__}: {exc}"[:300]))
         if callable(on_progress) and (i % 25 == 0 or i == len(eligible) - 1):
             on_progress(i + 1, len(eligible))
         time.sleep(client.request_delay)
