@@ -413,30 +413,81 @@ def lifecycle_acquire_weeks(
     _emit(out, json_out)
 
 
+@app.command(name="lifecycle-acquire-hr")
+def lifecycle_acquire_hr(
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    holdout_manifest: Annotated[Path, typer.Option(
+        "--holdout-manifest",
+        help="Sealed blind-holdout candidate ids (never queried)")] =
+    Path("docs/g9/blind-holdout-manifest.json"),
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """G9-B — per-entity HR crawl for development candidates.
+
+    Searches relevant-information by historical denominacion inside the
+    measured -14/+4-month window, stores the search + history pages as
+    immutable artifacts. Blind-holdout candidates are never queried,
+    linked, or inspected."""
+    from cnmv_iic.lifecycle_ingest import acquire_hr
+
+    root = data_dir or _data_dir()
+    out = _run(lambda: acquire_hr(
+        ArtifactStore(root / "artifacts"), root / "dataset",
+        holdout_manifest,
+        on_progress=lambda d, t: typer.echo(f"{d}/{t} entities", err=True)))
+    _emit(out, json_out)
+
+
 @app.command(name="lifecycle-export")
 def lifecycle_export(
     data_dir: Annotated[Path | None, typer.Option()] = None,
+    holdout_manifest: Annotated[Path, typer.Option(
+        "--holdout-manifest",
+        help="Sealed blind-holdout candidate ids (never linked)")] =
+    Path("docs/g9/blind-holdout-manifest.json"),
     json_out: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """G9-B — rebuild the source-assertion ledger from stored artifacts.
 
     Pure offline function of raw artifact bytes + parser/rule versions:
-    weekly registry documents -> source observations -> descriptive
-    assertions -> parquet + fingerprints. No network, no clocks."""
-    from cnmv_iic.lifecycle_ingest import weekly_ledger
+    weekly registry + HR + FONDREGISTRO marker documents -> source
+    observations -> descriptive assertions -> exact-regnum candidate
+    links -> parquet + fingerprints. No network, no clocks, no
+    holdout-linked rows."""
+    import json as _json
+
+    from cnmv_iic.lifecycle_ingest import (
+        candidate_links,
+        disappearance_candidates,
+        fondregistro_markers,
+        holdout_ids,
+        hr_ledger,
+        weekly_ledger,
+    )
     from cnmv_iic.lifecycle_storage import write_lifecycle
 
     root = data_dir or _data_dir()
     store = ArtifactStore(root / "artifacts")
-    docs, observations, assertions = weekly_ledger(store)
+    hindex_path = root / "dataset" / "lifecycle" / "hr_index.json"
+    hindex = (
+        _json.loads(hindex_path.read_text(encoding="utf-8"))
+        if hindex_path.exists() else {})
+    w_docs, w_obs, w_asserts = weekly_ledger(store)
+    h_docs, h_obs, h_asserts, resolutions = hr_ledger(store, hindex)
+    f_docs, f_obs, f_asserts = fondregistro_markers(
+        root / "dataset", store)
+    all_asserts = w_asserts + h_asserts + f_asserts
+    sealed = holdout_ids(holdout_manifest)
+    cands = disappearance_candidates(root / "dataset")
+    links = candidate_links(cands, all_asserts, sealed)
     out = _run(lambda: write_lifecycle(
         root / "dataset",
-        documents=docs,
-        observations=observations,
-        assertions=assertions,
-        entity_resolutions=[],
-        candidate_links=[],
-        candidates=[]))
+        documents=w_docs + h_docs + f_docs,
+        observations=w_obs + h_obs + f_obs,
+        assertions=all_asserts,
+        entity_resolutions=resolutions,
+        candidate_links=links,
+        candidates=cands))
     _emit(out, json_out)
 
 
