@@ -81,15 +81,39 @@ KNOWN_HEADERS = TABLE_HEADERS | {
 _VERB_START = re.compile(
     r"(?i)^\s*(inscribir|verificar y registrar|autorizar|acordar|"
     r"comunicar|resolver|ordenar|disponer|dejar constancia|"
-    r"verificar)\b")
+    r"verificar|incorporar)\b")
+_ACT_VERB_ANY = re.compile(
+    r"(?i)\b(inscribir|verificar y registrar|verificar|autorizar|"
+    r"acordar|comunicar|resolver|ordenar|disponer|dejar constancia|"
+    r"incorporar)\w*\b")
+
+#: act-object → pseudo-section; classified by which object appears
+#: FIRST after the act verb — a fund named "AHORRO FUSIÓN" or a folleto
+#: updated "con motivo de la fusión" does not make the act a merger.
+_ACT_OBJECTS: tuple[tuple[str, str], ...] = (
+    ("MODIFICACION DE DENOMINACION",
+     r"cambio\s+de\s+la\s+denominaci|modificaci.n\s+de\s+la\s+denominaci"),
+    ("ACTUALIZACION DE ELEMENTOS ESENCIALES DE FOLLETOS INFORMATIVOS",
+     r"actualizaci.n\s+(?:de\s+elementos\s+esenciales\s+)?de[ln]?\s*"
+     r"folleto|elementos\s+esenciales|actualizaci.n\s+de[ln]?\s*"
+     r"reglamento|modificaci.n\s+de[ln]?\s*reglamento"),
+    ("FUSION DE FONDOS DE INVERSION",
+     r"fusi.n|absorci.n|canje"),
+    ("ACUERDO DE DELEGACION REVOCACION DE LA GESTION DE ACTIVOS",
+     r"delegaci.n|revocaci.n"),
+    ("BAJAS", r"\bbaja\b"),
+    ("MODIFICACIONES EN REGLAMENTOS",
+     r"disoluci.n|liquidaci.n|modificaci.n"),
+)
 _HEADER_NOISE = re.compile(
     r"^(n\.?º?\.?\s*registro|n\.?º?\.?|registro|denominaci.n|denominaci|"
     r"gestora|deposit|depositaria|entidad|fecha|domicilio|capital)$",
     re.I)
 _REGNUM_LINE = re.compile(r"^\s*(\d{2,6})\s*$")
-_REGNUM_TEXT = re.compile(r"n[úu]mero\s*(\d{1,6})", re.I)
+# some PDFs mojibake 'ú' (n�mero / n.mero) — tolerate one stray char
+_REGNUM_TEXT = re.compile(r"n.{0,2}mero\s*(\d{1,6})", re.I)
 _NAME_NUM_INSCRITO = re.compile(
-    r"([^()]{2,}?)\s*\(\s*inscrito[^)]*?n[úu]mero\s*(\d{1,6})")
+    r"([^()]{2,}?)\s*\(\s*inscrito[^)]*?n.{0,2}mero\s*(\d{1,6})")
 _NO_DATA = re.compile(r"no hay datos para esta semana", re.I)
 _MAX_NAME_LINES = 8
 
@@ -316,27 +340,22 @@ def _regnums_of(text: str) -> tuple[str, ...]:
 
 def _classify_section(unit: _Unit) -> str | None:
     """Content-derived section — pending table header wins for bare
-    table rows; act verbs classify prose."""
+    table rows; prose is classified by the act object appearing FIRST
+    after the act verb, so "cambio de denominación … AHORRO FUSIÓN" is
+    a name change and "actualización de folleto con motivo de la
+    fusión" is a folleto update, not a merger registration."""
     t = norm(unit.text)
     if unit.kind == "table_row":
         return unit.section or "UNKNOWN_TABLE"
-    if re.search(r"FUSI|ABSORC|CANJE", t):
-        return "FUSION DE FONDOS DE INVERSION"
-    if re.search(r"DELEGACI|REVOCACI", t) and "GESTI" in t:
-        return "ACUERDO DE DELEGACION REVOCACION DE LA GESTION DE ACTIVOS"
-    if re.search(r"CAMBIO DE LA DENOMINACI|MODIFICACI.N DE LA "
-                 r"DENOMINACI|MODIFICACI.N DE LA DENOMINACI", t):
-        return "MODIFICACIONES EN REGLAMENTOS"
-    if re.search(r"ACTUALIZACI.N DEL FOLLETO|MODIFICACI.N DEL "
-                 r"REGLAMENTO|ELEMENTOS ESENCIALES", t):
-        return "ACTUALIZACION DE ELEMENTOS ESENCIALES DE FOLLETOS "\
-            "INFORMATIVOS"
-    if re.search(r"DISOLUCI|LIQUIDACI", t):
-        return "MODIFICACIONES EN REGLAMENTOS"
-    if re.search(r"\bBAJA\b", t):
-        return "BAJAS"
-    if unit.kind == "table_row":
-        return unit.section
+    m = _ACT_VERB_ANY.search(t)
+    tail = t[m.end():] if m else t
+    best: tuple[int, str] | None = None
+    for sec, pat in _ACT_OBJECTS:
+        hit = re.search(pat, tail, re.I)
+        if hit and (best is None or hit.start() < best[0]):
+            best = (hit.start(), sec)
+    if best:
+        return best[1]
     return "OTHER_REGISTRY_PROSE"
 
 
@@ -446,6 +465,8 @@ _SECTION_ASSERTION = {
     "FUSION DE FONDOS DE INVERSION": (
         "MERGER_REGISTRATION_RECORDED", "REGISTERED"),
     "MODIFICACIONES EN REGLAMENTOS": ("OTHER_REGISTRY_ACT", "REGISTERED"),
+    "MODIFICACION DE DENOMINACION": (
+        "NAME_CHANGE_REGISTRATION_RECORDED", "REGISTERED"),
     "ACTUALIZACION DE ELEMENTOS ESENCIALES DE FOLLETOS INFORMATIVOS": (
         "OTHER_REGISTRY_ACT", "REGISTERED"),
     "ACUERDO DE DELEGACION REVOCACION DE LA GESTION DE ACTIVOS": (
