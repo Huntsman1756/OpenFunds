@@ -146,6 +146,12 @@ def make_assertion_id(
         "g9b-ass", observation_id, atype, subject, obj, str(seq))
 
 
+def make_participant_id(
+        assertion_id: str, ordinal: int, role: str, raw: str) -> str:
+    return "lpar-" + _h(
+        "g9c-par", assertion_id, str(ordinal), role, raw)
+
+
 def make_candidate_id(
         candidate_type: str, fund_key: str, prev: str, curr: str) -> str:
     """Same deterministic id used by the G9-A measurement."""
@@ -240,6 +246,38 @@ class EntityResolution:
     corroboration: str | None          # event_prose | entity_header | none
     search_document_id: str | None
     parser_version: str
+
+
+class ParticipantRole(StrEnum):
+    """Source-evidence participation semantics — never final lineage."""
+    SUBJECT = "SUBJECT"
+    ABSORBED = "ABSORBED"
+    ABSORBING = "ABSORBING"
+    PREDECESSOR = "PREDECESSOR"
+    SUCCESSOR = "SUCCESSOR"
+    TARGET = "TARGET"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass(frozen=True)
+class AssertionParticipant:
+    """One exact participant of a multiparty source assertion.
+
+    Extends subject/object without changing their meaning: a merger
+    registration can carry up to ~30 absorbed regnums that a pair
+    cannot represent."""
+    participant_id: str
+    assertion_id: str
+    source_observation_id: str
+    source_document_id: str
+    participant_ordinal: int
+    participant_key: str | None           # FI:<regnum> exact domestic
+    participant_identifier_scheme: str | None
+    participant_identifier_raw: str | None
+    participant_name_raw: str | None
+    participant_role: str
+    identity_state: str
+    source_locator: str
 
 
 @dataclass(frozen=True)

@@ -20,6 +20,7 @@ from pathlib import Path
 import pyarrow as pa
 
 from cnmv_iic.lifecycle import (
+    AssertionParticipant,
     CandidateEvidenceLink,
     DisappearanceCandidate,
     EntityResolution,
@@ -110,6 +111,21 @@ ENTITY_RESOLUTIONS_SCHEMA = pa.schema([
     ("corroboration", pa.string()),
     ("search_document_id", pa.string()),
     ("parser_version", pa.string()),
+])
+
+ASSERTION_PARTICIPANTS_SCHEMA = pa.schema([
+    ("participant_id", pa.string()),
+    ("assertion_id", pa.string()),
+    ("source_observation_id", pa.string()),
+    ("source_document_id", pa.string()),
+    ("participant_ordinal", pa.int64()),
+    ("participant_key", pa.string()),
+    ("participant_identifier_scheme", pa.string()),
+    ("participant_identifier_raw", pa.string()),
+    ("participant_name_raw", pa.string()),
+    ("participant_role", pa.string()),
+    ("identity_state", pa.string()),
+    ("source_locator", pa.string()),
 ])
 
 CANDIDATE_LINKS_SCHEMA = pa.schema([
@@ -240,6 +256,25 @@ def entity_resolution_rows(
     } for r in sorted(res, key=lambda r: (r.entity_key, r.candidate_id))]
 
 
+def participant_rows(
+        parts: list[AssertionParticipant]) -> list[dict]:
+    return [{
+        "participant_id": p.participant_id,
+        "assertion_id": p.assertion_id,
+        "source_observation_id": p.source_observation_id,
+        "source_document_id": p.source_document_id,
+        "participant_ordinal": p.participant_ordinal,
+        "participant_key": p.participant_key,
+        "participant_identifier_scheme": p.participant_identifier_scheme,
+        "participant_identifier_raw": p.participant_identifier_raw,
+        "participant_name_raw": p.participant_name_raw,
+        "participant_role": p.participant_role,
+        "identity_state": p.identity_state,
+        "source_locator": p.source_locator,
+    } for p in sorted(
+        parts, key=lambda p: (p.assertion_id, p.participant_ordinal))]
+
+
 def candidate_link_rows(
         links: list[CandidateEvidenceLink]) -> list[dict]:
     return [{
@@ -283,6 +318,7 @@ def write_lifecycle(
         entity_resolutions: list[EntityResolution],
         candidate_links: list[CandidateEvidenceLink],
         candidates: list[DisappearanceCandidate],
+        participants: list[AssertionParticipant] | None = None,
 ) -> dict:
     """Write the lifecycle ledger to ``lifecycle/`` parquet tables and
     return fingerprints + counts. Pure function — callers supply all
@@ -294,6 +330,7 @@ def write_lifecycle(
     rrow = entity_resolution_rows(entity_resolutions)
     lrow = candidate_link_rows(candidate_links)
     crow = candidate_rows(candidates)
+    prow = participant_rows(participants or [])
     _write_table(
         drow, SOURCE_DOCUMENTS_SCHEMA,
         root / "source_documents" / "part-0.parquet")
@@ -312,6 +349,9 @@ def write_lifecycle(
     _write_table(
         crow, CANDIDATES_SCHEMA,
         root / "candidates" / "part-0.parquet")
+    _write_table(
+        prow, ASSERTION_PARTICIPANTS_SCHEMA,
+        root / "assertion_participants" / "part-0.parquet")
     manifest = {
         "documents": len(drow),
         "observations": len(orow),
@@ -319,8 +359,10 @@ def write_lifecycle(
         "entity_resolutions": len(rrow),
         "candidate_links": len(lrow),
         "candidates": len(crow),
+        "assertion_participants": len(prow),
         "ledger_fingerprint": canonical_fingerprint(
             drow, orow, arow, rrow, lrow),
+        "participants_fingerprint": canonical_fingerprint(prow),
         "candidates_fingerprint": canonical_fingerprint(crow),
     }
     (root / "manifest.json").write_text(

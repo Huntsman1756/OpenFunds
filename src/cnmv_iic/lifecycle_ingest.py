@@ -48,6 +48,7 @@ from cnmv_iic.adapters.weekly_registry import (
 from cnmv_iic.artifacts.store import ArtifactStore, SourceArtifact
 from cnmv_iic.lifecycle import (
     RULE_VERSION,
+    AssertionParticipant,
     CandidateEvidenceLink,
     DisappearanceCandidate,
     EntityResolution,
@@ -57,9 +58,11 @@ from cnmv_iic.lifecycle import (
     LifecycleSourceDocument,
     LifecycleSourceObservation,
     LinkState,
+    ParticipantRole,
     SourceFamily,
     make_assertion_id,
     make_candidate_id,
+    make_participant_id,
     make_source_document_id,
     make_source_observation_id,
 )
@@ -973,6 +976,125 @@ def fondregistro_markers(
 # ---------------------------------------------------------------------------
 # Candidate linkage — exact regnum only, holdout never linked
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# assertion participants — G9-C multiparty evidence (deterministic)
+# ---------------------------------------------------------------------------
+
+_MERGER_ASSERTION_TYPES = {
+    "MERGER_REQUESTED", "MERGER_PROPOSED", "MERGER_AUTHORIZED",
+    "MERGER_REGISTERED", "MERGER_EXECUTED", "MERGER_RENOUNCED",
+    "MERGER_REGISTRATION_RECORDED"}
+
+
+def assertion_participants(
+        assertions: list[LifecycleAssertion],
+        observations: list[LifecycleSourceObservation]
+) -> list[AssertionParticipant]:
+    """Normalized multiparty evidence for every assertion.
+
+    Merger-family assertions: regnums in the ``por`` successor clause
+    are ABSORBING; all other text regnums are ABSORBED. A merger event
+    carrying no text regnums (e.g. terse 'comunica la ejecución')
+    contributes only the resolved entity as SUBJECT — never an
+    inferred ABSORBING. Non-merger assertions keep subject/object as
+    SUBJECT/TARGET and any additional text regnum is UNKNOWN."""
+    obs_by_id = {o.source_observation_id: o for o in observations}
+    out: list[AssertionParticipant] = []
+
+    def _add(a: LifecycleAssertion, o: LifecycleSourceObservation,
+             ordinal: int, role: ParticipantRole, raw: str | None,
+             scheme: str | None, name: str | None) -> None:
+        out.append(AssertionParticipant(
+            participant_id=make_participant_id(
+                a.assertion_id, ordinal, role.value, raw or ""),
+            assertion_id=a.assertion_id,
+            source_observation_id=a.source_observation_id,
+            source_document_id=a.source_document_id,
+            participant_ordinal=ordinal,
+            participant_key=(
+                f"FI:{raw}" if scheme == "cnmv_register_number" and raw
+                else raw if scheme == "fund_key" else None),
+            participant_identifier_scheme=scheme,
+            participant_identifier_raw=raw,
+            participant_name_raw=name,
+            participant_role=role.value,
+            identity_state=(
+                IdentityState.EXACT_REGISTER_NUMBER.value
+                if scheme == "cnmv_register_number" and raw
+                else IdentityState.UNRESOLVED.value),
+            source_locator=a.source_locator))
+
+    for a in assertions:
+        o = obs_by_id.get(a.source_observation_id)
+        if o is None:
+            continue
+        try:
+            regs = json.loads(o.regnums_in_text or "[]")
+        except json.JSONDecodeError:
+            regs = []
+        try:
+            succ = json.loads(o.successor_regnums or "[]")
+        except json.JSONDecodeError:
+            succ = []
+        ordinal = 0
+        if a.assertion_type in _MERGER_ASSERTION_TYPES:
+            absorbed = [r for r in regs if r not in succ]
+            for r in absorbed:
+                _add(a, o, ordinal, ParticipantRole.ABSORBED, r,
+                     "cnmv_register_number", None)
+                ordinal += 1
+            for r in succ:
+                _add(a, o, ordinal, ParticipantRole.ABSORBING, r,
+                     "cnmv_register_number", None)
+                ordinal += 1
+            covered = set(regs) | set(succ)
+            if a.subject_identifier_raw and \
+                    a.subject_identifier_raw not in covered:
+                _add(a, o, ordinal, ParticipantRole.SUBJECT,
+                     a.subject_identifier_raw, "cnmv_register_number",
+                     o.subject_name_raw)
+                ordinal += 1
+            if a.object_identifier_raw and \
+                    a.object_identifier_raw not in covered:
+                _add(a, o, ordinal, ParticipantRole.TARGET,
+                     a.object_identifier_raw,
+                     a.object_identifier_type or "verbatim_name",
+                     None)
+                ordinal += 1
+            if not regs and not succ and \
+                    not a.subject_identifier_raw and \
+                    o.resolved_fund_key:
+                _add(a, o, ordinal, ParticipantRole.SUBJECT,
+                     o.resolved_fund_key, "fund_key",
+                     o.entity_name_raw)
+                ordinal += 1
+        else:
+            if a.subject_identifier_raw:
+                _add(a, o, ordinal, ParticipantRole.SUBJECT,
+                     a.subject_identifier_raw,
+                     a.subject_identifier_type or "cnmv_register_number",
+                     o.subject_name_raw)
+                ordinal += 1
+            if a.object_identifier_raw:
+                _add(a, o, ordinal, ParticipantRole.TARGET,
+                     a.object_identifier_raw,
+                     a.object_identifier_type or "verbatim_name",
+                     None)
+                ordinal += 1
+            covered = {a.subject_identifier_raw,
+                       a.object_identifier_raw}
+            for r in regs:
+                if r not in covered:
+                    _add(a, o, ordinal, ParticipantRole.UNKNOWN, r,
+                         "cnmv_register_number", None)
+                    ordinal += 1
+            if ordinal == 0 and o.resolved_fund_key:
+                _add(a, o, ordinal, ParticipantRole.SUBJECT,
+                     o.resolved_fund_key, "fund_key",
+                     o.entity_name_raw)
+    return out
 
 
 def candidate_links(

@@ -457,6 +457,7 @@ def lifecycle_export(
     import json as _json
 
     from cnmv_iic.lifecycle_ingest import (
+        assertion_participants,
         candidate_links,
         disappearance_candidates,
         fondregistro_markers,
@@ -480,14 +481,17 @@ def lifecycle_export(
     sealed = holdout_ids(holdout_manifest)
     cands = disappearance_candidates(root / "dataset")
     links = candidate_links(cands, all_asserts, sealed)
+    all_obs = w_obs + h_obs + f_obs
+    parts = assertion_participants(all_asserts, all_obs)
     out = _run(lambda: write_lifecycle(
         root / "dataset",
         documents=w_docs + h_docs + f_docs,
-        observations=w_obs + h_obs + f_obs,
+        observations=all_obs,
         assertions=all_asserts,
         entity_resolutions=resolutions,
         candidate_links=links,
-        candidates=cands))
+        candidates=cands,
+        participants=parts))
     _emit(out, json_out)
 
 

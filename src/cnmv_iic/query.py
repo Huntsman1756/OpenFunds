@@ -89,7 +89,8 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
     # lifecycle/ (no partitioning; rewritten per export)
     lc = root / "lifecycle"
     for table in ("source_documents", "source_observations",
-                  "assertions", "entity_resolutions", "candidate_links",
+                  "assertions", "assertion_participants",
+                  "entity_resolutions", "candidate_links",
                   "candidates"):
         if (lc / table).exists():
             glob = str(lc / table / "*.parquet")
