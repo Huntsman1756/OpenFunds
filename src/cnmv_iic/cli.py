@@ -483,6 +483,17 @@ def lifecycle_export(
     links = candidate_links(cands, all_asserts, sealed)
     all_obs = w_obs + h_obs + f_obs
     parts = assertion_participants(all_asserts, all_obs)
+    # G9-F derived read model: adjudications + ABSORBED_BY edges over
+    # ALL candidates (holdout unsealed after G9-E protocol PASS).
+    from cnmv_iic.lifecycle_adjudicate import adjudicate, derive_edges, enrich_adjudications
+    from cnmv_iic.lifecycle_research import evidence_profiles
+
+    profiles = evidence_profiles(
+        cands, all_asserts, parts, resolutions, set())
+    records = adjudicate(profiles, all_asserts, parts)
+    adj_rows = enrich_adjudications(
+        records, profiles, all_asserts, w_docs + h_docs + f_docs)
+    edges = derive_edges(records)
     out = _run(lambda: write_lifecycle(
         root / "dataset",
         documents=w_docs + h_docs + f_docs,
@@ -491,7 +502,9 @@ def lifecycle_export(
         entity_resolutions=resolutions,
         candidate_links=links,
         candidates=cands,
-        participants=parts))
+        participants=parts,
+        adjudications=adj_rows,
+        lineage_edges=edges))
     _emit(out, json_out)
 
 
@@ -1107,3 +1120,30 @@ def main() -> None:  # pragma: no cover
 
 if __name__ == "__main__":  # pragma: no cover
     main()
+
+
+@app.command(name="lifecycle-fund")
+def lifecycle_fund_cmd(
+    entity_key: Annotated[str, typer.Argument(
+        help="Fund key, e.g. FI:5534")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """What happened to this fund: adjudication + derived ABSORBED_BY
+    edges in both directions, with evidence provenance."""
+    from cnmv_iic.query import lifecycle_fund as _lf
+    root = data_dir or _data_dir()
+    _emit(_run(lambda: _lf(root / "dataset", entity_key)), json_out)
+
+
+@app.command(name="predecessors-of")
+def predecessors_of_cmd(
+    entity_key: Annotated[str, typer.Argument(
+        help="Absorbing fund key, e.g. FI:123")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Funds adjudicated as absorbed by this fund (in-edges)."""
+    from cnmv_iic.query import predecessors_of as _po
+    root = data_dir or _data_dir()
+    _emit(_run(lambda: _po(root / "dataset", entity_key)), json_out)

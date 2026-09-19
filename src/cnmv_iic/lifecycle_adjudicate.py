@@ -9,10 +9,11 @@ lifecycle event table and NOT a materialized lineage edge.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 
-from cnmv_iic.lifecycle import AssertionParticipant, LifecycleAssertion
-from cnmv_iic.lifecycle_research import CandidateEvidenceProfile
+from cnmv_iic.lifecycle import AssertionParticipant, LifecycleAssertion, LifecycleSourceDocument
+from cnmv_iic.lifecycle_research import CandidateEvidenceProfile, evidence_signature, profile_dict
 from cnmv_iic.storage import canonical_fingerprint
 
 ENGINE_VERSION = "g9e-v1"
@@ -181,3 +182,147 @@ def check_invariants(
             v["correction_dropped"] += 1
     v["conservation_fail"] += abs(len(profiles) - len(seen))
     return v
+
+
+# ---------------------------------------------------------------------
+# G9-F — derived read model: adjudications table + ABSORBED_BY edges.
+# Rows are the deterministic conclusion of assertion sets — explicitly
+# derived evidence_state, never source observations themselves.
+# ---------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class LifecycleAdjudicationRow:
+    """Materialized adjudication — one row per disappearance candidate."""
+    adjudication_id: str
+    candidate_id: str
+    entity_key: str
+    adjudication: str                # outcome label (g9e-v1 vocab)
+    successor_key: str | None
+    rule_id: str
+    engine_version: str
+    evidence_signature: str
+    evidence_profile_id: str
+    authorization_assertion_ids: str   # JSON list
+    registration_assertion_ids: str    # JSON list
+    deregistration_assertion_ids: str  # JSON list
+    execution_assertion_ids: str       # JSON list
+    participant_assertion_ids: str     # JSON list — all evidence
+    cross_source_corroborated: bool
+    authorization_date: str | None
+    registration_date: str | None
+    deregistration_date: str | None
+    execution_date: str | None
+    source_artifact_ids: str           # JSON list — raw_sha256-backed
+    flags: str                         # JSON list
+    adjudicated_at_build: str          # content stamp, not a clock
+
+
+@dataclass(frozen=True)
+class LineageEdge:
+    """Derived ABSORBED_BY edge — conclusion of an assertion set, not a
+    directly observed source fact. Emitted only for
+    ADJUDICATED_ABSORBED_BY under g9e-v1."""
+    edge_id: str
+    from_entity_key: str             # absorbed fund (the candidate)
+    to_entity_key: str               # absorbing/surviving fund
+    edge_type: str                   # ABSORBED_BY only
+    evidence_state: str              # ADJUDICATED
+    rule_id: str
+    engine_version: str
+    candidate_id: str
+    source_assertion_ids: str        # JSON list
+
+
+_REG_TYPES = frozenset({
+    "MERGER_REGISTRATION_RECORDED", "MERGER_REGISTERED"})
+_DEREG_TYPES = frozenset({
+    "DEREGISTRATION_RECORDED", "DEREGISTRATION_REPORTED"})
+
+
+def _aids(p: CandidateEvidenceProfile,
+          by_aid: dict[str, LifecycleAssertion],
+          types: frozenset[str]) -> list[str]:
+    return [aid for aid in p.assertion_ids
+            if aid in by_aid and by_aid[aid].assertion_type in types]
+
+
+def _earliest(aids: list[str],
+              by_aid: dict[str, LifecycleAssertion]) -> str | None:
+    dts = sorted(dt for aid in aids
+                 if (dt := by_aid[aid].publication_datetime))
+    return dts[0] if dts else None
+
+
+def enrich_adjudications(
+        records: list[AdjudicationRecord],
+        profiles: list[CandidateEvidenceProfile],
+        assertions: list[LifecycleAssertion],
+        documents: list[LifecycleSourceDocument],
+        ) -> list[LifecycleAdjudicationRow]:
+    """Join records to profiles + assertion/doc provenance."""
+    by_aid = {a.assertion_id: a for a in assertions}
+    by_cid = {p.candidate_id: p for p in profiles}
+    doc_art = {d.source_document_id: d.artifact_id
+               for d in documents}
+    rows: list[LifecycleAdjudicationRow] = []
+    for r in records:
+        p = by_cid[r.candidate_id]
+        auth = _aids(p, by_aid, frozenset({"MERGER_AUTHORIZED"}))
+        reg = _aids(p, by_aid, _REG_TYPES)
+        dereg = _aids(p, by_aid, _DEREG_TYPES)
+        execu = _aids(p, by_aid, frozenset({"MERGER_EXECUTED"}))
+        arts = sorted({doc_art[by_aid[aid].source_document_id]
+                       for aid in p.assertion_ids
+                       if aid in by_aid
+                       and by_aid[aid].source_document_id in doc_art})
+        prof_id = "lprof-" + canonical_fingerprint(
+            [profile_dict(p)])[:16]
+        rows.append(LifecycleAdjudicationRow(
+            adjudication_id="ladj-" + canonical_fingerprint(
+                [{"c": r.candidate_id, "v": ENGINE_VERSION}])[:16],
+            candidate_id=r.candidate_id,
+            entity_key=r.entity_key,
+            adjudication=r.outcome,
+            successor_key=r.successor_key,
+            rule_id=r.rule_id,
+            engine_version=r.engine_version,
+            evidence_signature=evidence_signature(p),
+            evidence_profile_id=prof_id,
+            authorization_assertion_ids=json.dumps(auth),
+            registration_assertion_ids=json.dumps(reg),
+            deregistration_assertion_ids=json.dumps(dereg),
+            execution_assertion_ids=json.dumps(execu),
+            participant_assertion_ids=json.dumps(
+                list(p.assertion_ids)),
+            cross_source_corroborated=r.successor_corroborated,
+            authorization_date=_earliest(auth, by_aid),
+            registration_date=_earliest(reg, by_aid),
+            deregistration_date=_earliest(dereg, by_aid),
+            execution_date=_earliest(execu, by_aid),
+            source_artifact_ids=json.dumps(arts),
+            flags=json.dumps(list(r.flags)),
+            adjudicated_at_build=ENGINE_VERSION))
+    return rows
+
+
+def derive_edges(
+        records: list[AdjudicationRecord]) -> list[LineageEdge]:
+    """ABSORBED_BY only. Never from INDETERMINATE_* or UNKNOWN_EXIT."""
+    edges: list[LineageEdge] = []
+    for r in records:
+        if r.outcome != "ADJUDICATED_ABSORBED_BY" or not r.successor_key:
+            continue
+        edges.append(LineageEdge(
+            edge_id="ledge-" + canonical_fingerprint(
+                [{"c": r.candidate_id, "t": r.successor_key,
+                  "v": ENGINE_VERSION}])[:16],
+            from_entity_key=r.entity_key,
+            to_entity_key=r.successor_key,
+            edge_type="ABSORBED_BY",
+            evidence_state="ADJUDICATED",
+            rule_id=r.rule_id,
+            engine_version=r.engine_version,
+            candidate_id=r.candidate_id,
+            source_assertion_ids=json.dumps(
+                list(r.evidence_assertion_ids))))
+    return sorted(edges, key=lambda e: e.edge_id)

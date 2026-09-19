@@ -91,13 +91,20 @@ def _con(root: Path | str) -> duckdb.DuckDBPyConnection:
     for table in ("source_documents", "source_observations",
                   "assertions", "assertion_participants",
                   "entity_resolutions", "candidate_links",
-                  "candidates"):
+                  "candidates", "adjudications"):
         if (lc / table).exists():
             glob = str(lc / table / "*.parquet")
             con.execute(
                 f"CREATE VIEW lifecycle_{table} AS "
                 f"SELECT * FROM read_parquet('{glob}')"
             )
+    lin = root / "lineage" / "edges"
+    if lin.exists():
+        glob = str(lin / "*.parquet")
+        con.execute(
+            "CREATE VIEW lineage_edges AS "
+            f"SELECT * FROM read_parquet('{glob}')"
+        )
     return con
 
 
@@ -2529,3 +2536,44 @@ def dataset_info(root: Path | str) -> dict:
             manifests[f.stem] = json.loads(f.read_text(encoding="utf-8"))
     out["manifests"] = manifests
     return out
+
+
+def lifecycle_fund(dataset_root: Path | str, entity_key: str) -> dict:
+    """G9-F derived read model for one fund: adjudication + ABSORBED_BY
+    edges in both directions with full evidence provenance."""
+    con = _con(dataset_root)
+    adj = _rows(con.execute(
+        "SELECT * FROM lifecycle_adjudications WHERE entity_key = ?",
+        [entity_key])) if _view_exists(con, "lifecycle_adjudications") \
+        else []
+    out_edges = in_edges = []
+    if _view_exists(con, "lineage_edges"):
+        out_edges = _rows(con.execute(
+            "SELECT * FROM lineage_edges WHERE from_entity_key = ?",
+            [entity_key]))
+        in_edges = _rows(con.execute(
+            "SELECT * FROM lineage_edges WHERE to_entity_key = ?",
+            [entity_key]))
+    return {
+        "entity_key": entity_key,
+        "adjudication": adj[0] if adj else None,
+        "absorbed_by_edges": out_edges,
+        "absorbed_funds_edges": in_edges,
+    }
+
+
+def predecessors_of(dataset_root: Path | str, entity_key: str) -> dict:
+    """Funds adjudicated as absorbed by ``entity_key`` (in-edges)."""
+    con = _con(dataset_root)
+    edges = _rows(con.execute(
+        "SELECT * FROM lineage_edges WHERE to_entity_key = ?"
+        " ORDER BY from_entity_key", [entity_key])) \
+        if _view_exists(con, "lineage_edges") else []
+    return {"entity_key": entity_key,
+            "absorbed_funds": edges, "count": len(edges)}
+
+
+def _view_exists(con: duckdb.DuckDBPyConnection, name: str) -> bool:
+    return bool(con.execute(
+        "SELECT 1 FROM duckdb_views() WHERE view_name = ?",
+        [name]).fetchone())

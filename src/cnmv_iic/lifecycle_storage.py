@@ -28,6 +28,7 @@ from cnmv_iic.lifecycle import (
     LifecycleSourceDocument,
     LifecycleSourceObservation,
 )
+from cnmv_iic.lifecycle_adjudicate import LifecycleAdjudicationRow, LineageEdge
 from cnmv_iic.storage import _write_table, canonical_fingerprint
 
 SOURCE_DOCUMENTS_SCHEMA = pa.schema([
@@ -126,6 +127,43 @@ ASSERTION_PARTICIPANTS_SCHEMA = pa.schema([
     ("participant_role", pa.string()),
     ("identity_state", pa.string()),
     ("source_locator", pa.string()),
+])
+
+ADJUDICATIONS_SCHEMA = pa.schema([
+    ("adjudication_id", pa.string()),
+    ("candidate_id", pa.string()),
+    ("entity_key", pa.string()),
+    ("adjudication", pa.string()),
+    ("successor_key", pa.string()),
+    ("rule_id", pa.string()),
+    ("engine_version", pa.string()),
+    ("evidence_signature", pa.string()),
+    ("evidence_profile_id", pa.string()),
+    ("authorization_assertion_ids", pa.string()),
+    ("registration_assertion_ids", pa.string()),
+    ("deregistration_assertion_ids", pa.string()),
+    ("execution_assertion_ids", pa.string()),
+    ("participant_assertion_ids", pa.string()),
+    ("cross_source_corroborated", pa.bool_()),
+    ("authorization_date", pa.string()),
+    ("registration_date", pa.string()),
+    ("deregistration_date", pa.string()),
+    ("execution_date", pa.string()),
+    ("source_artifact_ids", pa.string()),
+    ("flags", pa.string()),
+    ("adjudicated_at_build", pa.string()),
+])
+
+LINEAGE_EDGES_SCHEMA = pa.schema([
+    ("edge_id", pa.string()),
+    ("from_entity_key", pa.string()),
+    ("to_entity_key", pa.string()),
+    ("edge_type", pa.string()),
+    ("evidence_state", pa.string()),
+    ("rule_id", pa.string()),
+    ("engine_version", pa.string()),
+    ("candidate_id", pa.string()),
+    ("source_assertion_ids", pa.string()),
 ])
 
 CANDIDATE_LINKS_SCHEMA = pa.schema([
@@ -275,6 +313,17 @@ def participant_rows(
         parts, key=lambda p: (p.assertion_id, p.participant_ordinal))]
 
 
+def adjudication_rows(
+        rows: list[LifecycleAdjudicationRow]) -> list[dict]:
+    return [r.__dict__.copy() for r in sorted(
+        rows, key=lambda r: r.candidate_id)]
+
+
+def lineage_edge_rows(edges: list[LineageEdge]) -> list[dict]:
+    return [e.__dict__.copy() for e in sorted(
+        edges, key=lambda e: e.edge_id)]
+
+
 def candidate_link_rows(
         links: list[CandidateEvidenceLink]) -> list[dict]:
     return [{
@@ -319,6 +368,8 @@ def write_lifecycle(
         candidate_links: list[CandidateEvidenceLink],
         candidates: list[DisappearanceCandidate],
         participants: list[AssertionParticipant] | None = None,
+        adjudications: list[LifecycleAdjudicationRow] | None = None,
+        lineage_edges: list[LineageEdge] | None = None,
 ) -> dict:
     """Write the lifecycle ledger to ``lifecycle/`` parquet tables and
     return fingerprints + counts. Pure function — callers supply all
@@ -352,6 +403,14 @@ def write_lifecycle(
     _write_table(
         prow, ASSERTION_PARTICIPANTS_SCHEMA,
         root / "assertion_participants" / "part-0.parquet")
+    adjrow = adjudication_rows(adjudications or [])
+    edgrow = lineage_edge_rows(lineage_edges or [])
+    _write_table(
+        adjrow, ADJUDICATIONS_SCHEMA,
+        root / "adjudications" / "part-0.parquet")
+    _write_table(
+        edgrow, LINEAGE_EDGES_SCHEMA,
+        Path(dataset_root) / "lineage" / "edges" / "part-0.parquet")
     manifest = {
         "documents": len(drow),
         "observations": len(orow),
@@ -360,9 +419,13 @@ def write_lifecycle(
         "candidate_links": len(lrow),
         "candidates": len(crow),
         "assertion_participants": len(prow),
+        "adjudications": len(adjrow),
+        "lineage_edges": len(edgrow),
         "ledger_fingerprint": canonical_fingerprint(
             drow, orow, arow, rrow, lrow),
         "participants_fingerprint": canonical_fingerprint(prow),
+        "adjudications_fingerprint": canonical_fingerprint(adjrow),
+        "lineage_edges_fingerprint": canonical_fingerprint(edgrow),
         "candidates_fingerprint": canonical_fingerprint(crow),
     }
     (root / "manifest.json").write_text(
