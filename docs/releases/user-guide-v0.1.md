@@ -17,6 +17,20 @@ weekly-bulletin acquisition, offline lifecycle export, offline
 verify) — it adds no new ingestion logic. Stored artifacts are never
 re-downloaded, so re-running is cheap.
 
+`verify` reports a `source_set_fingerprint` — a canonical hash of the
+`(period, source_family, artifact_sha256)` set alone — plus a verdict:
+
+| verdict | meaning |
+|---|---|
+| `SAME_SOURCE_SET_SAME_DATASET` | same source bytes → same derived data |
+| `SOURCE_REVISION_DETECTED` | a newer artifact exists for a period — CNMV republished; different input, not a local error |
+| `LOCAL_DERIVATION_MISMATCH` | recorded fingerprint not reproduced from the referenced artifact — real integrity problem |
+| `MISSING_SOURCE_ARTIFACT` | a manifest references an artifact absent from the store |
+
+"Identical fingerprints" always means *over the same source set*: if
+CNMV swaps an old ZIP, a differing `source_set_fingerprint` explains
+any differing dataset fingerprint as a source revision.
+
 ## Find a fund by ISIN
 
 ```text

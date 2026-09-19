@@ -69,3 +69,42 @@ def test_verify_missing_artifact_skips(live, tmp_path):
 def test_verify_no_manifests(tmp_path):
     rep = verify_dataset(tmp_path / "ds")
     assert not rep["ok"]
+
+
+def test_source_set_fingerprint(live):
+    from cnmv_iic.verify import source_set_fingerprint
+    arts = ArtifactStore(live["data"] / "artifacts").load()
+    fp1 = source_set_fingerprint(arts)
+    assert fp1 == source_set_fingerprint(list(reversed(arts)))  # order-free
+    rep = verify_dataset(live["dataset"], live["data"] / "artifacts")
+    assert rep["source_set_fingerprint"] == fp1
+    assert rep["verdict"] == "SAME_SOURCE_SET_SAME_DATASET"
+
+
+def test_source_revision_detected(live):
+    # CNMV "republishes" the period: different bytes -> new artifact
+    store = ArtifactStore(live["data"] / "artifacts")
+    art2, _ = store.put(
+        period="2025-12", source_page="t", source_url="t",
+        content_type="application/zip",
+        data=make_zip({
+            "FONDCART_202512.xml": FONDCART_XML + b"<!-- rev -->",
+            "FONDPATRIMDISVAR_202512.xml": PDV_XML,
+            "FONDREGISTRO_202512.xml": FONDREGISTRO_XML,
+        }))
+    assert art2.sha256 != live["artifact"].sha256
+    rep = verify_dataset(live["dataset"], live["data"] / "artifacts")
+    assert rep["verdict"] == "SOURCE_REVISION_DETECTED"
+    assert rep["verdicts"]["2025-12"] == "SOURCE_REVISION_DETECTED"
+    # the recorded derivation itself still re-verifies against the
+    # artifact it was built from — the problem is the newer source,
+    # not the local pipeline
+    assert not any("dataset_fingerprint" in p for p in rep["problems"])
+    assert "2025-12.json:source_revision" in rep["problems"]
+
+
+def test_missing_source_artifact(live):
+    empty = live["data"] / "empty-artifacts"
+    rep = verify_dataset(live["dataset"], empty)
+    assert rep["verdict"] == "MISSING_SOURCE_ARTIFACT"
+    assert rep["verdicts"]["2025-12"] == "MISSING_SOURCE_ARTIFACT"

@@ -1165,10 +1165,13 @@ def verify(
             f"re-parsing {p}", err=True)))
     _emit({
         "ok": report["ok"],
+        "verdict": report["verdict"],
+        "source_set_fingerprint": report["source_set_fingerprint"],
         "checks": len(report["checks"]),
         "skipped": report["skipped"],
         "problems": report["problems"],
-        **({"detail": report["checks"]} if json_out else {}),
+        **({"detail": report["checks"],
+            "verdicts": report["verdicts"]} if json_out else {}),
     }, json_out)
     if not report["ok"]:
         raise typer.Exit(2)
@@ -1285,7 +1288,10 @@ def sync(
             on_progress=lambda p: typer.echo(
                 f"re-parsing {p}", err=True)))
         steps["verify"] = {
-            "ok": report["ok"], "checks": len(report["checks"]),
+            "ok": report["ok"], "verdict": report["verdict"],
+            "source_set_fingerprint":
+                report["source_set_fingerprint"],
+            "checks": len(report["checks"]),
             "problems": report["problems"]}
         if not report["ok"]:
             _emit({"range": f"{from_period}..{to_period}",

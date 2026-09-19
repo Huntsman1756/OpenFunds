@@ -20,11 +20,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from hashlib import sha256
 from pathlib import Path
+from typing import Literal
 
 import pyarrow.parquet as pq
 
-from cnmv_iic.artifacts.store import ArtifactStore
+from cnmv_iic.artifacts.store import ArtifactStore, SourceArtifact
 from cnmv_iic.storage import (
     canonical_fingerprint,
     compartment_rows,
@@ -53,6 +55,28 @@ _LIFECYCLE_FP_TABLES = {
 }
 
 _VOLATILE_COLS = {"adjudicated_at"}   # stamped after fingerprinting
+
+Verdict = Literal[
+    "SAME_SOURCE_SET_SAME_DATASET",
+    "SOURCE_REVISION_DETECTED",
+    "LOCAL_DERIVATION_MISMATCH",
+    "MISSING_SOURCE_ARTIFACT",
+]
+
+
+def source_set_fingerprint(artifacts: list[SourceArtifact]) -> str:
+    """Canonical fingerprint of the source-artifact set alone —
+    (period, source_family, sha256) triples, canonically ordered.
+
+    A third-party build over the same source bytes produces the same
+    value; a different value means CNMV (or a provider) published
+    different bytes — a source revision, not a reproducibility loss.
+    """
+    h = sha256()
+    for p, f, s in sorted(
+            (a.period, a.source_family, a.sha256) for a in artifacts):
+        h.update(f"{p}|{f}|{s}\n".encode())
+    return h.hexdigest()
 
 
 def _read_rows(path: Path) -> list[dict]:
@@ -124,6 +148,7 @@ def verify_dataset(
              and Path(artifacts_root).is_dir() else None)
     checks: list[dict] = []
     skipped: list[str] = []
+    verdicts: dict[str, Verdict] = {}
 
     def check(name: str, ok: bool, expected: str, actual: str) -> None:
         checks.append({
@@ -134,9 +159,14 @@ def verify_dataset(
     mdir = root / "manifests"
     if not mdir.is_dir():
         return {"ok": False, "checks": [], "skipped": skipped,
+                "verdicts": verdicts,
+                "source_set_fingerprint": None,
+                "verdict": "MISSING_SOURCE_ARTIFACT",
                 "problems": [f"no manifests directory at {mdir}"]}
 
-    ledger = {a.sha256: a for a in store.load()} if store else {}
+    all_arts = store.load() if store else []
+    ledger = {a.sha256: a for a in all_arts}
+    ssfp = source_set_fingerprint(all_arts) if store else None
     parsed_cache: dict[str, dict] = {}
 
     for mpath in sorted(mdir.glob("*.json")):
@@ -160,6 +190,9 @@ def verify_dataset(
             sha = aid.rsplit("/", 1)[-1] if "/" in aid else aid
             art = ledger.get(sha) if store else None
             if art is None or store is None:
+                verdicts[period] = "MISSING_SOURCE_ARTIFACT"
+                check(f"{name}:source_artifact", False, sha,
+                      "<absent from store>")
                 for key in ("dataset_fingerprint", "daily_fingerprint",
                             "quarterly_fingerprint",
                             "patrimony_fingerprint",
@@ -168,6 +201,17 @@ def verify_dataset(
                         skipped.append(f"{name}:{key} "
                                        "(artifact not in store)")
                 continue
+            verdicts[period] = "SAME_SOURCE_SET_SAME_DATASET"
+
+            # a newer artifact for the same period means the source
+            # itself was republished — different input bytes, not a
+            # local derivation error
+            latest = store.latest_for_period(period)
+            if latest is not None and latest.sha256 != sha:
+                verdicts[period] = "SOURCE_REVISION_DETECTED"
+                check(f"{name}:source_revision", False, sha,
+                      f"latest in store: {latest.sha256}")
+
             if on_progress:
                 on_progress(period)
             if sha not in parsed_cache:
@@ -177,6 +221,7 @@ def verify_dataset(
                 except Exception as exc:    # report, never abort
                     parsed_cache[sha] = {"__error__": str(exc)}
             if "__error__" in parsed_cache[sha]:
+                verdicts[period] = "LOCAL_DERIVATION_MISMATCH"
                 for key in ("dataset_fingerprint", "daily_fingerprint",
                             "quarterly_fingerprint",
                             "patrimony_fingerprint",
@@ -187,12 +232,18 @@ def verify_dataset(
                               f"{parsed_cache[sha]['__error__']}")
                 continue
             got_map = _period_fingerprints(parsed_cache[sha])
+            mismatch = False
             for key in ("dataset_fingerprint", "daily_fingerprint",
                         "quarterly_fingerprint", "patrimony_fingerprint",
                         "derivatives_fingerprint"):
                 if key in m:
-                    check(f"{name}:{key}", got_map.get(key) == m[key],
+                    ok = got_map.get(key) == m[key]
+                    mismatch = mismatch or not ok
+                    check(f"{name}:{key}", ok,
                           m[key], got_map.get(key, "<absent>"))
+            if mismatch and verdicts[period] == \
+                    "SAME_SOURCE_SET_SAME_DATASET":
+                verdicts[period] = "LOCAL_DERIVATION_MISMATCH"
             continue
 
         if "adjudication_fingerprint" in m:
@@ -295,5 +346,21 @@ def verify_dataset(
               f"{len(edges)} edges / {len(absorbed)} absorbed")
 
     problems = [c["name"] for c in checks if not c["ok"]]
-    return {"ok": not problems, "checks": checks, "skipped": skipped,
-            "problems": problems}
+    # worst-case aggregation: MISSING > MISMATCH > REVISION > SAME
+    order: dict[Verdict, int] = {
+        "MISSING_SOURCE_ARTIFACT": 3,
+        "LOCAL_DERIVATION_MISMATCH": 2,
+        "SOURCE_REVISION_DETECTED": 1,
+        "SAME_SOURCE_SET_SAME_DATASET": 0,
+    }
+    verdict: Verdict = "SAME_SOURCE_SET_SAME_DATASET"
+    for v in verdicts.values():
+        if order[v] > order[verdict]:
+            verdict = v
+    return {
+        "ok": not problems, "checks": checks, "skipped": skipped,
+        "problems": problems,
+        "verdicts": verdicts,
+        "verdict": verdict,
+        "source_set_fingerprint": ssfp,
+    }
