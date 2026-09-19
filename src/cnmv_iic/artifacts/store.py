@@ -15,6 +15,7 @@ Rules (ADR-004):
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import tempfile
@@ -39,7 +40,7 @@ class SourceArtifact:
     source_id: str            # "cnmv-iic-zip/<period>/<sha256>"
     provider: str             # "cnmv"
     source_family: str        # "descarga-informacion-individual"
-    period: str               # "YYYY-MM"
+    period: str               # natural dedupe key: "YYYY-MM" or caller key
     source_page: str
     source_url_ephemeral: str
     retrieved_at: str         # ISO-8601 UTC
@@ -49,6 +50,7 @@ class SourceArtifact:
     members: tuple[ArtifactMember, ...]
     xsd_sha256: dict[str, str]
     supersedes: str | None = None
+    raw_suffix: str = ".zip"  # extension of the stored raw payload
 
     def member(self, prefix: str) -> ArtifactMember | None:
         p = prefix.upper()
@@ -107,7 +109,67 @@ class ArtifactStore:
         return None
 
     def raw_path(self, artifact: SourceArtifact) -> Path:
-        return self.root / "raw" / f"{artifact.sha256}.zip"
+        suffix = artifact.raw_suffix or ".zip"
+        return self.root / "raw" / f"{artifact.sha256}{suffix}"
+
+    def _store_raw(self, digest: str, suffix: str, data: bytes) -> None:
+        raw = self.root / "raw" / f"{digest}{suffix}"
+        if raw.exists():
+            return
+        fd, tmp = tempfile.mkstemp(dir=self.root / "raw", suffix=".part")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, raw)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+
+    def _append(
+        self,
+        *,
+        period: str,
+        source_page: str,
+        source_url: str,
+        content_type: str | None,
+        data: bytes,
+        retrieved_at: datetime | None,
+        provider: str,
+        source_family: str,
+        source_id_prefix: str,
+        raw_suffix: str,
+        members: tuple[ArtifactMember, ...],
+        xsd_sha256: dict[str, str],
+    ) -> tuple[SourceArtifact, bool]:
+        """Shared dedupe + ledger append for all payload kinds."""
+        digest = sha256(data).hexdigest()
+        prior = self.latest_for_period(
+            period, provider=provider, source_family=source_family)
+        if prior is not None and prior.sha256 == digest:
+            return prior, False
+
+        self._store_raw(digest, raw_suffix, data)
+        artifact = SourceArtifact(
+            source_id=f"{source_id_prefix}/{period}/{digest}",
+            provider=provider,
+            source_family=source_family,
+            period=period,
+            source_page=source_page,
+            source_url_ephemeral=source_url,
+            retrieved_at=(retrieved_at or datetime.now(UTC)).isoformat(),
+            content_type=content_type,
+            size_bytes=len(data),
+            sha256=digest,
+            members=members,
+            xsd_sha256=xsd_sha256,
+            supersedes=prior.source_id if prior else None,
+            raw_suffix=raw_suffix,
+        )
+        with open(self.ledger_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(asdict(artifact), sort_keys=True) + "\n")
+        return artifact, True
 
     def put(
         self,
@@ -129,26 +191,7 @@ class ArtifactStore:
         and ``False``. ``period`` is the artifact's natural dedupe key —
         a CNMV publication month or a provider snapshot date.
         """
-        digest = sha256(data).hexdigest()
-        prior = self.latest_for_period(
-            period, provider=provider, source_family=source_family)
-        if prior is not None and prior.sha256 == digest:
-            return prior, False
-
-        raw = self.root / "raw" / f"{digest}.zip"
-        if not raw.exists():
-            fd, tmp = tempfile.mkstemp(dir=self.root / "raw", suffix=".part")
-            try:
-                with os.fdopen(fd, "wb") as f:
-                    f.write(data)
-                    f.flush()
-                    os.fsync(f.fileno())
-                os.replace(tmp, raw)
-            finally:
-                if os.path.exists(tmp):
-                    os.unlink(tmp)
-
-        zf = zipfile.ZipFile(raw)
+        zf = zipfile.ZipFile(io.BytesIO(data))
         members = tuple(
             ArtifactMember(i.filename, i.file_size, sha256(zf.read(i)).hexdigest())
             for i in zf.infolist()
@@ -159,25 +202,41 @@ class ArtifactStore:
                 fam = member_family(m.name)
                 if fam:
                     xsd_hashes[fam] = m.sha256
-
-        artifact = SourceArtifact(
-            source_id=f"{source_id_prefix}/{period}/{digest}",
-            provider=provider,
-            source_family=source_family,
-            period=period,
-            source_page=source_page,
-            source_url_ephemeral=source_url,
-            retrieved_at=(retrieved_at or datetime.now(UTC)).isoformat(),
-            content_type=content_type,
-            size_bytes=len(data),
-            sha256=digest,
-            members=members,
-            xsd_sha256=xsd_hashes,
-            supersedes=prior.source_id if prior else None,
+        return self._append(
+            period=period, source_page=source_page, source_url=source_url,
+            content_type=content_type, data=data,
+            retrieved_at=retrieved_at, provider=provider,
+            source_family=source_family, source_id_prefix=source_id_prefix,
+            raw_suffix=".zip", members=members, xsd_sha256=xsd_hashes,
         )
-        with open(self.ledger_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(asdict(artifact), sort_keys=True) + "\n")
-        return artifact, True
+
+    def put_blob(
+        self,
+        *,
+        period: str,
+        source_page: str,
+        source_url: str,
+        content_type: str | None,
+        data: bytes,
+        raw_suffix: str,
+        retrieved_at: datetime | None = None,
+        provider: str = "cnmv",
+        source_family: str,
+        source_id_prefix: str,
+    ) -> tuple[SourceArtifact, bool]:
+        """Store an opaque (non-ZIP) payload — PDF, HTML, etc.
+
+        Same ledger semantics as :meth:`put`: ``period`` is the caller-
+        chosen dedupe key; identical bytes -> no-op; changed bytes ->
+        new version superseding the previous one. Members are empty.
+        """
+        return self._append(
+            period=period, source_page=source_page, source_url=source_url,
+            content_type=content_type, data=data,
+            retrieved_at=retrieved_at, provider=provider,
+            source_family=source_family, source_id_prefix=source_id_prefix,
+            raw_suffix=raw_suffix, members=(), xsd_sha256={},
+        )
 
     def verify_integrity(self, artifact: SourceArtifact) -> bool:
         raw = self.raw_path(artifact)

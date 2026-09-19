@@ -387,6 +387,32 @@ def ingest_openfigi_cmd(
     )
 
 
+@app.command(name="lifecycle-acquire-weeks")
+def lifecycle_acquire_weeks(
+    from_month: Annotated[str, typer.Option(
+        "--from", help="First month YYYY-MM (widened to weeks)")],
+    to_month: Annotated[str, typer.Option(
+        "--to", help="Last month YYYY-MM (widened to weeks)")],
+    data_dir: Annotated[Path | None, typer.Option()] = None,
+    json_out: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """G9-B — chronological resumable weekly-bulletin acquisition.
+
+    Per week: ``lnkRegistro`` when present, ``lnkBoletinCompleto`` as
+    the general fallback; the selection page is stored only when a
+    week exposes no document link (gap evidence). Stored artifacts are
+    never re-downloaded — resume is 0-network.
+    """
+    from cnmv_iic.lifecycle_ingest import acquire_weeks
+
+    root = data_dir or _data_dir()
+    out = _run(lambda: acquire_weeks(
+        ArtifactStore(root / "artifacts"), root / "dataset",
+        from_month, to_month,
+        on_progress=lambda d, t: typer.echo(f"{d}/{t} weeks", err=True)))
+    _emit(out, json_out)
+
+
 @app.command()
 def adjudicate(
     data_dir: Annotated[Path | None, typer.Option()] = None,

@@ -51,6 +51,7 @@ select = ["E", "F", "I", "UP", "B", "S", "W"]
 # S608: all interpolated SQL fragments are fixed column names or local glob
 # paths built from --data-dir; every query value is a bound parameter.
 "src/cnmv_iic/query.py" = ["S608"]
+"src/cnmv_iic/lifecycle_ingest.py" = ["S608"]
 
 [tool.mypy]
 python_version = "3.11"

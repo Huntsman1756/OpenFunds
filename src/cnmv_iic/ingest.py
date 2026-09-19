@@ -9,7 +9,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from cnmv_iic.acquisition.client import CnmvClient
+from cnmv_iic.acquisition.client import CnmvClient, DownloadedPayload
 from cnmv_iic.adapters.fondcart import parse_fondcart, reconcile
 from cnmv_iic.adapters.fondderi import parse_fondderi
 from cnmv_iic.adapters.fondmens import parse_fondmens
@@ -333,7 +333,7 @@ class _IndexCachingClient(CnmvClient):
             self._cache[year] = self._inner.list_months(year)
         return self._cache[year]
 
-    def download_zip(self, url: str):  # noqa: ANN201
+    def download_zip(self, url: str) -> DownloadedPayload:
         return self._inner.download_zip(url)
 
 
